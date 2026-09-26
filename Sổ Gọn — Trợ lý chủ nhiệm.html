@@ -1,0 +1,1554 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sổ Gọn — Trợ lý chủ nhiệm</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+<style>
+/* ============ TOKENS ============ */
+:root{
+  --bg:#FEFAE0; --surface:#FFFDF6; --surface-2:#FFF7E4;
+  --ink:#283618; --ink-soft:#5b5a3f; --ink-faint:#8a8567;
+  --olive:#606C38; --olive-dark:#283618; --sand:#DDA15E; --rust:#BC6C25;
+  --border:rgba(40,54,24,.14); --border-soft:rgba(40,54,24,.08);
+  --shadow:0 10px 28px rgba(40,54,24,.09); --shadow-sm:0 2px 8px rgba(40,54,24,.06);
+  --good:#4c7a3d; --warn:#BC6C25; --bad:#a3402f;
+  --r-lg:22px; --r-md:14px; --r-sm:9px; --r-pill:999px;
+  --sidebar-w:250px; --sidebar-w-c:76px;
+}
+:root:not([data-theme="light"]){
+  @media (prefers-color-scheme: dark){
+    --bg:#191c10; --surface:#222616; --surface-2:#282c1a;
+    --ink:#f3efd9; --ink-soft:#cdc8a9; --ink-faint:#9a9576;
+    --olive:#93a35a; --olive-dark:#dfe6c4; --sand:#e6b978; --rust:#e2915a;
+    --border:rgba(243,239,217,.14); --border-soft:rgba(243,239,217,.08);
+    --shadow:0 10px 28px rgba(0,0,0,.45); --shadow-sm:0 2px 8px rgba(0,0,0,.3);
+    --good:#7fb56a; --warn:#e6b978; --bad:#e08a76;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#191c10; --surface:#222616; --surface-2:#282c1a;
+  --ink:#f3efd9; --ink-soft:#cdc8a9; --ink-faint:#9a9576;
+  --olive:#93a35a; --olive-dark:#dfe6c4; --sand:#e6b978; --rust:#e2915a;
+  --border:rgba(243,239,217,.14); --border-soft:rgba(243,239,217,.08);
+  --shadow:0 10px 28px rgba(0,0,0,.45); --shadow-sm:0 2px 8px rgba(0,0,0,.3);
+  --good:#7fb56a; --warn:#e6b978; --bad:#e08a76;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:'Be Vietnam Pro',system-ui,-apple-system,sans-serif;
+  font-size:15px; line-height:1.5;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{margin:0; color:var(--ink); font-weight:700; letter-spacing:-.01em}
+p{margin:0}
+button{font-family:inherit; cursor:pointer}
+a{color:inherit}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px}
+.hidden{display:none !important}
+.scrollx{overflow-x:auto; -webkit-overflow-scrolling:touch}
+
+/* ============ SHELL ============ */
+#app{display:flex; min-height:100%}
+
+.sidebar{
+  width:var(--sidebar-w); flex:0 0 auto; background:var(--olive-dark); color:#f3efd9;
+  display:flex; flex-direction:column; position:sticky; top:0; height:100vh; height:100dvh;
+  padding:18px 14px; gap:6px; transition:width .18s ease;
+}
+:root[data-theme="dark"] .sidebar, :root:not([data-theme="light"]) .sidebar{ background:#11140a; }
+.sidebar.collapsed{width:var(--sidebar-w-c)}
+.brand{display:flex; align-items:center; gap:10px; padding:6px 8px 18px; color:#fff}
+.brand-mark{width:38px;height:38px;border-radius:11px;background:var(--sand); display:flex;align-items:center;justify-content:center;flex:0 0 auto; font-size:19px}
+.brand-text{overflow:hidden; white-space:nowrap}
+.brand-text b{display:block; font-size:16.5px; letter-spacing:-.02em}
+.brand-text span{display:block; font-size:11.5px; color:#d7d3b2; opacity:.85}
+.sidebar.collapsed .brand-text{display:none}
+.navlist{display:flex; flex-direction:column; gap:2px; margin-top:4px; flex:1}
+.navlink{
+  display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:var(--r-sm);
+  color:#d7d3b2; text-decoration:none; font-size:14.5px; font-weight:500; border:none; background:none;
+  width:100%; text-align:left; white-space:nowrap; overflow:hidden;
+}
+.navlink svg{flex:0 0 auto; opacity:.9}
+.navlink:hover{background:rgba(255,255,255,.06); color:#fff}
+.navlink.active{background:var(--sand); color:#2b2308; font-weight:700}
+.navlink.active svg{opacity:1}
+.sidebar.collapsed .navlink span.lbl{display:none}
+.sidebar-foot{display:flex; flex-direction:column; gap:2px; padding-top:10px; border-top:1px dashed rgba(255,255,255,.15)}
+.collapse-btn{align-self:flex-end; background:none; border:none; color:#d7d3b2; padding:6px; border-radius:8px}
+.collapse-btn:hover{background:rgba(255,255,255,.08)}
+
+.main{flex:1; min-width:0; display:flex; flex-direction:column}
+.topbar{
+  position:sticky; top:0; z-index:30; background:var(--bg); padding:14px 26px;
+  padding-top:calc(14px + env(safe-area-inset-top,0px));
+  border-bottom:1px solid var(--border-soft);
+  display:flex; align-items:center; gap:14px;
+}
+.searchbox{
+  flex:1; max-width:380px; display:flex; align-items:center; gap:8px;
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--r-pill);
+  padding:9px 14px; color:var(--ink-faint);
+}
+.searchbox input{border:none; outline:none; background:none; color:var(--ink); font-size:14px; width:100%; font-family:inherit}
+.datebadge{
+  display:flex; align-items:center; gap:8px; border:1px solid var(--border); border-radius:var(--r-pill);
+  padding:8px 14px; font-size:13.5px; color:var(--ink-soft); white-space:nowrap; background:var(--surface);
+}
+.spacer{flex:1}
+.icon-btn{
+  position:relative; width:40px; height:40px; border-radius:50%; border:1px solid var(--border);
+  background:var(--surface); display:flex; align-items:center; justify-content:center; color:var(--ink-soft); flex:0 0 auto;
+}
+.icon-btn:hover{border-color:var(--olive); color:var(--olive)}
+.badge-dot{position:absolute; top:6px; right:6px; min-width:16px; height:16px; padding:0 3px; border-radius:99px; background:var(--rust); color:#fff; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; border:2px solid var(--bg)}
+.avatar-btn{width:40px; height:40px; border-radius:50%; background:var(--olive); color:#fff; font-weight:700; font-size:14px; border:none; display:flex; align-items:center; justify-content:center; flex:0 0 auto}
+
+.pop{position:absolute; top:56px; right:26px; width:320px; background:var(--surface); border:1px solid var(--border); border-radius:var(--r-md); box-shadow:var(--shadow); z-index:60; overflow:hidden}
+.search-pop{position:absolute; top:calc(100% + 8px); left:0; right:0; background:var(--surface); border:1px solid var(--border); border-radius:var(--r-md); box-shadow:var(--shadow); z-index:60; overflow:hidden; max-height:360px; overflow-y:auto}
+.search-row{display:flex; align-items:center; gap:10px; padding:10px 14px; width:100%; background:none; border:none; text-align:left; border-bottom:1px solid var(--border-soft); color:var(--ink)}
+.search-row:last-child{border-bottom:none}
+.search-row:hover{background:var(--surface-2)}
+.search-row .sric{width:30px; height:30px; border-radius:8px; background:var(--surface-2); color:var(--olive); display:flex; align-items:center; justify-content:center; flex:0 0 auto}
+.search-row small{display:block; color:var(--ink-faint); font-size:11px; margin-top:1px}
+.pop-head{padding:14px 16px; border-bottom:1px dashed var(--border); font-weight:700; font-size:14.5px; display:flex; align-items:center; justify-content:space-between}
+.pop-body{max-height:360px; overflow-y:auto}
+.notif-item{display:flex; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border-soft); border-left:3px solid transparent}
+.notif-item.unread{border-left-color:var(--sand); background:var(--surface-2)}
+.notif-tag{font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:99px; background:var(--surface-2); color:var(--olive); white-space:nowrap; height:fit-content}
+.notif-item.unread .notif-tag{background:var(--sand); color:#2b2308}
+.notif-txt p{font-size:13px; color:var(--ink-soft); margin-top:3px}
+.notif-time{font-size:11px; color:var(--ink-faint); margin-top:4px}
+
+.profile-pop{padding:18px}
+.profile-head{display:flex; gap:12px; align-items:center; margin-bottom:14px}
+.profile-head .avatar-btn{width:52px; height:52px; font-size:18px}
+.profile-row{display:flex; justify-content:space-between; padding:8px 0; border-top:1px dashed var(--border); font-size:13.5px}
+.profile-row span:first-child{color:var(--ink-faint)}
+.profile-row span:last-child{font-weight:600; text-align:right}
+.logout-btn{margin-top:12px; width:100%; padding:10px; border-radius:var(--r-sm); border:1px solid var(--border); background:none; color:var(--bad); font-weight:600; font-size:13.5px}
+.logout-btn:hover{background:var(--surface-2)}
+
+.page{padding:22px 26px 60px; max-width:1400px}
+.page-head{display:flex; align-items:flex-end; justify-content:space-between; gap:14px; margin-bottom:18px; flex-wrap:wrap}
+.page-head h2{font-size:23px}
+.page-head p{color:var(--ink-faint); font-size:13.5px; margin-top:3px}
+
+/* ============ GENERIC COMPONENTS ============ */
+.card{background:var(--surface); border:1px solid var(--border-soft); border-radius:var(--r-md); box-shadow:var(--shadow-sm)}
+.card-pad{padding:18px 20px}
+.card-head{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px}
+.card-head h3{font-size:15.5px; display:flex; align-items:center; gap:9px}
+.card-head h3 svg{color:var(--olive)}
+.btn{display:inline-flex; align-items:center; gap:7px; padding:9px 16px; border-radius:var(--r-sm); font-size:13.5px; font-weight:600; border:1px solid transparent; white-space:nowrap}
+.btn-primary{background:var(--olive); color:#fff}
+.btn-primary:hover{background:var(--olive-dark)}
+.btn-outline{background:none; border-color:var(--border); color:var(--ink)}
+.btn-outline:hover{border-color:var(--olive); color:var(--olive)}
+.btn-ghost{background:none; border:none; color:var(--olive); padding:6px 8px; font-weight:600; font-size:13px}
+.btn-sm{padding:6px 11px; font-size:12.5px}
+.btn-danger{background:none; border:1px solid var(--border); color:var(--bad)}
+
+.tabs{display:flex; gap:4px; overflow-x:auto; padding-bottom:2px}
+.tab{padding:8px 15px; border-radius:var(--r-pill); border:1px solid var(--border); background:var(--surface); font-size:13px; font-weight:600; color:var(--ink-soft); white-space:nowrap; flex:0 0 auto}
+.tab.active{background:var(--olive); border-color:var(--olive); color:#fff}
+
+.chip{display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:var(--r-pill); background:var(--surface-2); font-size:11.5px; font-weight:600; color:var(--olive)}
+.chip.rust{background:rgba(188,108,37,.14); color:var(--rust)}
+.chip.bad{background:rgba(163,64,47,.12); color:var(--bad)}
+.chip.good{background:rgba(76,122,61,.13); color:var(--good)}
+
+.divider-dashed{border-top:1px dashed var(--border); margin:14px 0}
+
+table{width:100%; border-collapse:collapse; font-size:13.5px}
+th{text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-faint); font-weight:700; padding:9px 12px; border-bottom:1px solid var(--border)}
+td{padding:11px 12px; border-bottom:1px solid var(--border-soft); color:var(--ink-soft)}
+tr:last-child td{border-bottom:none}
+.tbl-name{color:var(--ink); font-weight:600}
+
+.progress{height:8px; border-radius:99px; background:var(--surface-2); overflow:hidden}
+.progress > span{display:block; height:100%; background:var(--olive); border-radius:99px}
+.ring{position:relative; width:72px; height:72px}
+.ring svg{transform:rotate(-90deg)}
+.ring-label{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px}
+
+.toast-root{position:fixed; bottom:calc(22px + env(safe-area-inset-bottom,0px)); left:50%; transform:translateX(-50%); z-index:200; display:flex; flex-direction:column; gap:8px; align-items:center}
+.toast{background:var(--olive-dark); color:#fff; padding:11px 18px; border-radius:var(--r-pill); font-size:13.5px; box-shadow:var(--shadow); animation:toastin .18s ease}
+@keyframes toastin{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:translateY(0)}}
+
+.modal-overlay{position:fixed; inset:0; background:rgba(24,26,14,.5); z-index:150; display:flex; align-items:center; justify-content:center; padding:20px}
+.modal{background:var(--surface); border-radius:var(--r-lg); max-width:560px; width:100%; max-height:88vh; overflow-y:auto; box-shadow:var(--shadow); padding:22px}
+.modal-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px}
+.modal-close{background:none; border:none; color:var(--ink-faint); padding:4px}
+.field{margin-bottom:13px}
+.field label{display:block; font-size:12.5px; font-weight:600; color:var(--ink-soft); margin-bottom:6px}
+.field input,.field select,.field textarea{
+  width:100%; border:1px solid var(--border); border-radius:var(--r-sm); padding:10px 12px; font-size:13.5px;
+  font-family:inherit; background:var(--bg); color:var(--ink); outline:none;
+}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--olive)}
+.field textarea{resize:vertical; min-height:70px}
+.field-row{display:flex; gap:10px}
+.field-row .field{flex:1}
+
+.banner{
+  margin:0 26px 0; margin-top:14px; padding:14px 18px; border-radius:var(--r-md); background:var(--surface-2);
+  border:1px solid var(--border); display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+}
+.banner-icon{width:38px; height:38px; border-radius:11px; background:var(--sand); color:#2b2308; display:flex; align-items:center; justify-content:center; flex:0 0 auto}
+.banner p{font-size:13.5px; color:var(--ink); flex:1; min-width:200px}
+.banner .btnrow{display:flex; gap:8px}
+
+.kpi-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:18px}
+.kpi{background:var(--surface); border:1px solid var(--border-soft); border-radius:var(--r-lg); padding:17px 18px; box-shadow:var(--shadow-sm)}
+.kpi-top{display:flex; align-items:center; gap:11px; margin-bottom:12px}
+.kpi-ic{width:38px; height:38px; border-radius:11px; display:flex; align-items:center; justify-content:center; flex:0 0 auto}
+.kpi-label{font-size:12.5px; color:var(--ink-faint); font-weight:600}
+.kpi-val{font-size:26px; font-weight:800}
+.kpi-delta{font-size:11.5px; font-weight:700; margin-top:6px}
+.kpi-delta.up{color:var(--good)} .kpi-delta.down{color:var(--bad)}
+
+.grid2{display:grid; grid-template-columns:1.5fr 1fr; gap:16px; align-items:start}
+.class-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px}
+.classcard{background:var(--surface); border:1px solid var(--border-soft); border-radius:var(--r-lg); padding:18px; box-shadow:var(--shadow-sm); text-align:left; width:100%; display:flex; flex-direction:column; gap:10px}
+.classcard:hover{border-color:var(--olive)}
+.classcard-top{display:flex; align-items:flex-start; justify-content:space-between}
+.classtag{width:44px; height:44px; border-radius:12px; background:var(--olive-dark); color:#f3efd9; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px}
+.classcard h4{font-size:16.5px}
+.classcard .meta{font-size:12.5px; color:var(--ink-faint)}
+.stat-mini{display:flex; justify-content:space-between; font-size:12px; color:var(--ink-faint)}
+
+.sched-toggle{display:flex; gap:3px; background:var(--surface-2); padding:3px; border-radius:var(--r-pill)}
+.sched-toggle button{padding:7px 14px; border-radius:var(--r-pill); border:none; background:none; font-size:12.5px; font-weight:600; color:var(--ink-soft)}
+.sched-toggle button.active{background:var(--surface); color:var(--ink); box-shadow:var(--shadow-sm)}
+.sched-item{display:flex; align-items:center; gap:14px; padding:13px 6px; border-bottom:1px dashed var(--border)}
+.sched-item:last-child{border-bottom:none}
+.sched-time{width:98px; flex:0 0 auto; font-size:12px; color:var(--ink-faint); font-weight:600}
+.sched-body{flex:1; min-width:0}
+.sched-body h4{font-size:14.5px}
+.sched-meta{display:flex; gap:14px; margin-top:5px; font-size:12px; color:var(--ink-faint); flex-wrap:wrap}
+.sched-meta span{display:flex; align-items:center; gap:4px}
+
+.weekgrid{display:grid; grid-template-columns:52px repeat(6,1fr); gap:0; font-size:11px; border:1px solid var(--border-soft); border-radius:var(--r-sm); overflow:hidden}
+.weekgrid .wg-h{background:var(--surface-2); padding:8px 4px; text-align:center; font-weight:700; border-bottom:1px solid var(--border-soft); border-left:1px solid var(--border-soft)}
+.weekgrid .wg-time{padding:6px 4px; text-align:center; color:var(--ink-faint); border-top:1px solid var(--border-soft)}
+.weekgrid .wg-cell{border-top:1px solid var(--border-soft); border-left:1px solid var(--border-soft); padding:4px; min-height:44px}
+.weekgrid .wg-block{background:var(--surface-2); border-left:3px solid var(--olive); border-radius:5px; padding:4px 6px; font-size:10.5px; font-weight:700; color:var(--ink); height:100%}
+.weekgrid .wg-block span{display:block; font-weight:500; color:var(--ink-faint); font-size:9.5px}
+
+.monthcal{display:grid; grid-template-columns:repeat(7,1fr); gap:5px}
+.monthcal .mc-h{text-align:center; font-size:11px; font-weight:700; color:var(--ink-faint); padding-bottom:4px}
+.mc-day{aspect-ratio:1; border-radius:9px; border:1px solid var(--border-soft); display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:12.5px; gap:3px; background:var(--surface)}
+.mc-day.empty{border:none; background:none}
+.mc-day.today{border-color:var(--olive); font-weight:800; background:var(--surface-2)}
+.mc-dots{display:flex; gap:2px}
+.mc-dot{width:5px; height:5px; border-radius:99px}
+
+.reminder-item{display:flex; align-items:center; gap:12px; padding:12px 4px; border-bottom:1px dashed var(--border)}
+.reminder-item:last-child{border-bottom:none}
+.reminder-ck{width:20px; height:20px; border-radius:6px; border:1.5px solid var(--border); flex:0 0 auto}
+.reminder-body{flex:1; min-width:0}
+.reminder-body h4{font-size:13.5px; font-weight:600}
+.reminder-body p{font-size:11.5px; color:var(--ink-faint); margin-top:2px}
+.countdown{font-size:12px; font-weight:700; padding:5px 10px; border-radius:var(--r-pill); white-space:nowrap; flex:0 0 auto}
+.countdown.ok{background:rgba(76,122,61,.13); color:var(--good)}
+.countdown.soon{background:rgba(221,161,94,.22); color:var(--rust)}
+.countdown.late{background:rgba(163,64,47,.12); color:var(--bad)}
+
+.hl-student{display:flex; gap:12px; padding:13px 4px; border-bottom:1px dashed var(--border); align-items:flex-start}
+.hl-student:last-child{border-bottom:none}
+.hl-avatar{width:38px; height:38px; border-radius:50%; background:var(--surface-2); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12.5px; color:var(--olive); flex:0 0 auto}
+.hl-body h4{font-size:13.5px}
+.hl-body .meta{font-size:11.5px; color:var(--ink-faint); margin:2px 0 4px}
+.hl-body p{font-size:12.5px; color:var(--ink-soft)}
+
+.roster-row{display:flex; align-items:center; gap:14px; padding:13px 8px; border-bottom:1px solid var(--border-soft); text-align:left; width:100%; background:none; border-left:none; border-right:none; border-top:none}
+.roster-row:hover{background:var(--surface-2)}
+.roster-row:last-child{border-bottom:none}
+
+.eval-card{border:1px solid var(--border-soft); border-radius:var(--r-md); padding:14px 16px; margin-bottom:10px; border-left:3px solid var(--sand)}
+.eval-card h5{font-size:13px; margin-bottom:5px}
+.eval-card p{font-size:12.5px; color:var(--ink-soft)}
+.eval-card .who{font-size:11px; color:var(--ink-faint); margin-top:6px}
+
+.aisummary{background:linear-gradient(135deg,var(--surface-2),var(--surface)); border:1px solid var(--border); border-radius:var(--r-md); padding:16px 18px}
+.aisummary .tag{display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; color:var(--olive); margin-bottom:8px}
+.aisummary p{font-size:13.5px; color:var(--ink); line-height:1.65}
+.aisummary .note{font-size:11px; color:var(--ink-faint); margin-top:9px; font-style:italic}
+
+.filebucket{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px}
+.filecard{border:1px solid var(--border-soft); border-radius:var(--r-md); padding:14px; background:var(--surface); text-align:left}
+.filecard:hover{border-color:var(--olive)}
+.filecard .fic{width:34px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center; margin-bottom:10px}
+.filecard h5{font-size:12.5px; word-break:break-word; line-height:1.35}
+.filecard .meta{font-size:10.5px; color:var(--ink-faint); margin-top:5px}
+
+.commcard{border:1px solid var(--border-soft); border-radius:var(--r-lg); padding:18px; background:var(--surface); display:flex; flex-direction:column; gap:10px}
+.commcard .zic{width:44px; height:44px; border-radius:12px; background:#2E7EF0; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800}
+.commcard h4{font-size:14.5px}
+.commcard p{font-size:12px; color:var(--ink-faint)}
+
+.mascot-wrap{position:fixed; right:calc(22px + env(safe-area-inset-right,0px)); bottom:calc(22px + env(safe-area-inset-bottom,0px)); z-index:120; display:flex; flex-direction:column; align-items:flex-end; gap:10px}
+.mascot-btn{width:62px; height:62px; border-radius:50%; background:var(--surface); border:3px solid var(--surface); box-shadow:var(--shadow); display:flex; align-items:center; justify-content:center; padding:0; overflow:hidden}
+.mascot-panel{width:328px; background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); box-shadow:var(--shadow); padding:16px}
+.mascot-panel .mhead{display:flex; align-items:center; gap:9px; margin-bottom:10px}
+.mascot-panel .mhead b{font-size:13.5px}
+.mascot-tip{background:var(--surface-2); border-radius:var(--r-md); padding:12px 14px; font-size:12.5px; color:var(--ink); line-height:1.5; margin-bottom:10px}
+.mascot-chat-body{max-height:300px; min-height:40px; overflow-y:auto; margin-bottom:10px; padding-right:2px}
+.mascot-chat-input{display:flex; gap:6px; margin-bottom:10px}
+.mascot-chat-input input{flex:1; border:1px solid var(--border); border-radius:var(--r-pill); padding:9px 14px; font-size:12.5px; font-family:inherit; background:var(--bg); color:var(--ink); outline:none}
+.mascot-chat-input input:focus{border-color:var(--olive)}
+.mascot-chat-input button{width:36px; height:36px; border-radius:50%; border:none; background:var(--olive); color:#fff; display:flex; align-items:center; justify-content:center; flex:0 0 auto}
+.mascot-chat-input button:hover{background:var(--olive-dark)}
+.mascot-quick{display:flex; flex-direction:column; gap:6px}
+.mascot-quick button{text-align:left; font-size:12px; padding:8px 10px; border-radius:9px; border:1px solid var(--border); background:none; color:var(--ink-soft)}
+.mascot-quick button:hover{border-color:var(--olive); color:var(--olive)}
+
+.emptystate{padding:34px 18px; text-align:center; color:var(--ink-faint); font-size:13px}
+.emptystate svg{margin-bottom:8px; opacity:.5}
+
+.badge-flag{display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:700; color:var(--bad)}
+
+@media (max-width:980px){
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .grid2{grid-template-columns:1fr}
+  .weekgrid{font-size:9.5px}
+}
+@media (max-width:760px){
+  .sidebar{position:fixed; bottom:0; left:0; right:0; top:auto; width:100%; height:auto;
+    flex-direction:row; padding:8px calc(6px + env(safe-area-inset-left,0px)) calc(8px + env(safe-area-inset-bottom,0px)) calc(6px + env(safe-area-inset-right,0px));
+    z-index:100; overflow-x:auto; border-top:1px solid rgba(255,255,255,.08); gap:2px;}
+  .brand,.sidebar-foot{display:none}
+  .navlist{flex-direction:row; flex:none}
+  .navlink{flex-direction:column; gap:4px; padding:6px 10px; font-size:9.5px; border-radius:10px}
+  .navlink span.lbl{display:block !important}
+  .main{padding-bottom:70px}
+  .topbar{padding:12px 14px; padding-top:calc(12px+env(safe-area-inset-top,0px)); flex-wrap:wrap}
+  .datebadge{order:3; width:100%}
+  .page{padding:16px 14px 40px}
+  .kpi-grid{grid-template-columns:1fr 1fr}
+  .banner{margin:14px 14px 0}
+  .pop{right:14px; left:14px; width:auto}
+  .mascot-panel{width:min(328px, calc(100vw - 40px))}
+  .mascot-wrap{bottom:calc(78px + env(safe-area-inset-bottom,0px))}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">📘</div>
+      <div class="brand-text"><b>Sổ Gọn</b><span>Trợ lý chủ nhiệm</span></div>
+    </div>
+    <nav class="navlist" id="navlist"></nav>
+    <div class="sidebar-foot">
+      <button class="collapse-btn" id="collapseBtn" title="Thu gọn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div style="position:relative;flex:1;max-width:380px">
+        <div class="searchbox" style="max-width:none">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input id="globalSearch" autocomplete="off" placeholder="Tìm lớp học, học sinh, tệp…">
+        </div>
+        <div id="searchPop"></div>
+      </div>
+      <div class="spacer"></div>
+      <div class="datebadge" id="dateBadge"></div>
+      <button class="icon-btn" id="notifBtn" title="Thông báo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0112 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+        <span class="badge-dot" id="notifCount"></span>
+      </button>
+      <button class="avatar-btn" id="avatarBtn"></button>
+      <div id="notifPop"></div>
+      <div id="profilePop"></div>
+    </header>
+    <div id="bannerSlot"></div>
+    <main class="page" id="pageRoot"></main>
+  </div>
+</div>
+
+<div class="mascot-wrap" id="mascotWrap">
+  <div id="mascotPanel"></div>
+  <button class="mascot-btn" id="mascotBtn" title="Trợ lý Gọn"></button>
+</div>
+
+<div id="modalRoot"></div>
+<div class="toast-root" id="toastRoot"></div>
+
+<script>
+/* =====================================================================
+   Sổ Gọn — self-contained interactive prototype
+   All data is seeded/mocked in-browser (no external backend in this demo).
+===================================================================== */
+(function(){
+"use strict";
+
+/* ---------- seeded RNG ---------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const rnd = mulberry32(20250926);
+const ri = (min,max)=>Math.floor(rnd()*(max-min+1))+min;
+const rf = (min,max,dec=1)=>+(rnd()*(max-min)+min).toFixed(dec);
+const pick = arr=>arr[Math.floor(rnd()*arr.length)];
+const pickN = (arr,n)=>{const c=[...arr],out=[];for(let i=0;i<n&&c.length;i++){out.push(c.splice(Math.floor(rnd()*c.length),1)[0]);}return out;};
+
+/* ---------- icon set ---------- */
+const ICONS = {
+  home:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
+  book:'<path d="M4 19.5A2.5 2.5 0 016.5 17H20V4H6.5A2.5 2.5 0 004 6.5v13z"/><path d="M4 19.5A2.5 2.5 0 006.5 22H20v-3"/>',
+  users:'<circle cx="9" cy="8" r="4"/><path d="M2 21v-1a6 6 0 0112 0v1"/><path d="M16 4.5a4 4 0 010 7"/><path d="M14 14a6 6 0 016 6v1"/>',
+  check:'<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 12l3 3 5-6"/>',
+  archive:'<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v9a2 2 0 002 2h10a2 2 0 002-2V9"/><path d="M10 13h4"/>',
+  chat:'<path d="M21 11.5a8.4 8.4 0 01-9 8.4A8.6 8.6 0 014 18l-1 3 3-1a8.4 8.4 0 019.5-15.6A8.4 8.4 0 0121 11.5z"/>',
+  bell:'<path d="M6 8a6 6 0 0112 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/>',
+  calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>',
+  chevD:'<path d="M6 9l6 6 6-6"/>',
+  x:'<path d="M18 6L6 18M6 6l12 12"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  phone:'<path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6A19.8 19.8 0 012.1 4.2 2 2 0 014.1 2h3a2 2 0 012 1.7c.1.9.3 1.8.6 2.7a2 2 0 01-.5 2.1L8 9.7a16 16 0 006 6l1.2-1.2a2 2 0 012.1-.5c.9.3 1.8.5 2.7.6a2 2 0 011.7 2z"/>',
+  pin:'<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0116 0z"/><circle cx="12" cy="10" r="3"/>',
+  star:'<path d="M12 2l3.1 6.6 7.2.9-5.3 5 1.4 7.2L12 18.3 5.6 21.7 7 14.5l-5.3-5 7.2-.9z"/>',
+  up:'<path d="M3 17l6-6 4 4 8-9"/><path d="M15 6h6v6"/>',
+  down:'<path d="M3 7l6 6 4-4 8 9"/><path d="M15 18h6v-6"/>',
+  alert:'<path d="M12 3l10 18H2z"/><path d="M12 10v4M12 17h.01"/>',
+  upload:'<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/>',
+  file:'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/>',
+  sheet:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>',
+  send:'<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/>',
+  settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.6V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.6-1H3a2 2 0 010-4h.1a1.7 1.7 0 001.6-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3H9a1.7 1.7 0 001-1.6V3a2 2 0 014 0v.1a1.7 1.7 0 001 1.6 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.6 1H21a2 2 0 010 4h-.1a1.7 1.7 0 00-1.6 1z"/>',
+  target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+  megaphone:'<path d="M3 11v3a1 1 0 001 1h2l4 5V6L6 11H4a1 1 0 00-1 1z"/><path d="M14 6a5 5 0 010 12"/><path d="M18 4a9 9 0 010 16"/>',
+  sparkle:'<path d="M12 2l1.8 5.4L19 9l-5.2 1.6L12 16l-1.8-5.4L5 9l5.2-1.6z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>',
+  chevL:'<path d="M15 6l-6 6 6 6"/>',
+};
+function icon(name,size=18,strokeWidth=2){
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]||''}</svg>`;
+}
+
+/* ---------- helpers ---------- */
+const $ = sel=>document.querySelector(sel);
+const $$ = sel=>Array.from(document.querySelectorAll(sel));
+const esc = s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const VI_MONTHS=['Th1','Th2','Th3','Th4','Th5','Th6','Th7','Th8','Th9','Th10','Th11','Th12'];
+const VI_WEEKDAYS_FULL=['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
+function fmtDate(d){return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`;}
+function fmtDateLong(d){return `${VI_WEEKDAYS_FULL[d.getDay()]}, ${d.getDate()} ${VI_MONTHS[d.getMonth()]}, ${d.getFullYear()}`;}
+function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
+function startOfDay(d){const r=new Date(d);r.setHours(0,0,0,0);return r;}
+function ls_get(key,fallback){try{const v=localStorage.getItem(key);return v?JSON.parse(v):fallback;}catch(e){return fallback;}}
+function ls_set(key,val){try{localStorage.setItem(key,JSON.stringify(val));}catch(e){}}
+function toast(msg){
+  const root=$('#toastRoot'); const el=document.createElement('div'); el.className='toast'; el.textContent=msg;
+  root.appendChild(el); setTimeout(()=>{el.style.opacity='0'; el.style.transition='opacity .25s'; setTimeout(()=>el.remove(),250);},2400);
+}
+function closeAllPops(){$('#notifPop').innerHTML='';$('#profilePop').innerHTML='';$('#searchPop').innerHTML='';}
+function closeModal(){$('#modalRoot').innerHTML='';}
+function openModal(html){$('#modalRoot').innerHTML=`<div class="modal-overlay" data-action="modal-bg"><div class="modal" onclick="event.stopPropagation()">${html}</div></div>`;}
+
+/* ================= DATA GENERATION ================= */
+const TEACHER = {name:'Nguyễn Thu Hà', age:36, school:'THCS Nguyễn Trãi, Hà Nội', subject:'Toán học', homeroom:'8A1', initials:'TH'};
+
+const SURNAMES=['Nguyễn','Trần','Lê','Phạm','Hoàng','Huỳnh','Phan','Vũ','Võ','Đặng','Bùi','Đỗ','Hồ','Ngô','Dương','Lý'];
+const MID_M=['Văn','Hữu','Minh','Thành','Quang','Đức','Anh','Công','Trọng','Xuân'];
+const MID_F=['Thị','Ngọc','Thanh','Thu','Kim','Hồng','Mỹ','Bảo','Hoài','Diệu'];
+const GIVEN_M=['An','Bình','Cường','Dũng','Đạt','Hùng','Khánh','Long','Minh','Nam','Phong','Quân','Sơn','Tài','Thắng','Tuấn','Việt','Vinh','Khoa','Hải'];
+const GIVEN_F=['Anh','Chi','Diệp','Giang','Hà','Hoa','Huyền','Lan','Linh','Mai','My','Ngân','Nhi','Oanh','Phương','Quỳnh','Thảo','Trang','Uyên','Yến'];
+const STREETS=['Cầu Giấy','Xuân Thủy','Nguyễn Trãi','Kim Mã','Láng Hạ','Tây Sơn','Giải Phóng','Lê Duẩn','Hoàng Quốc Việt','Trần Duy Hưng','Nguyễn Chí Thanh','Phạm Văn Đồng','Đội Cấn','Hồ Tùng Mậu','Nguyễn Văn Cừ'];
+const DISTRICTS=['Cầu Giấy','Đống Đa','Hai Bà Trưng','Thanh Xuân','Ba Đình','Hoàng Mai','Tây Hồ','Long Biên','Hà Đông'];
+const FAMILY_T=['Bố mẹ làm kinh doanh tự do, quan tâm sát sao đến việc học của con.','Bố làm công chức nhà nước, mẹ nội trợ, gia đình nền nếp.','Gia đình thuộc diện cận nghèo, được nhà trường miễn giảm học phí.','Bố mẹ đi làm xa, em sống cùng ông bà.','Bố mẹ đều là giáo viên, chú trọng giáo dục con cái.','Gia đình làm nông, thu nhập không ổn định theo mùa vụ.','Bố mẹ ly hôn, em sống cùng mẹ.','Gia đình có điều kiện, thường xuyên đầu tư học thêm cho con.','Bố làm kỹ sư, mẹ làm kế toán, gia đình ổn định.','Em là con một, được gia đình quan tâm đặc biệt.'];
+const XTRA=['CLB Bóng đá','CLB Cầu lông','CLB Tiếng Anh','Đội Văn nghệ','CLB Mỹ thuật','CLB Tin học','CLB Bóng rổ','CLB Cờ vua','Đội Tình nguyện','Đội Nghi thức','CLB MC - Dẫn chương trình','CLB Âm nhạc'];
+const SUBJECTS=['Toán','Ngữ văn','Tiếng Anh','Vật lý','Hóa học','Sinh học','Lịch sử','Địa lý','GDCD','Tin học','Công nghệ','Thể dục'];
+const ATT_LOG_POOL=['Nói chuyện riêng trong giờ học','Không làm bài tập về nhà','Tích cực phát biểu xây dựng bài','Đi học muộn 10 phút','Được tuyên dương vì giúp đỡ bạn học yếu','Quên mang đồng phục','Ngủ gật trong giờ','Hoàn thành xuất sắc bài kiểm tra miệng','Sử dụng điện thoại trong giờ học','Chủ động xin phát biểu, tinh thần tốt'];
+
+function genName(gender){
+  const mid = gender==='M'?pick(MID_M):pick(MID_F);
+  const given = gender==='M'?pick(GIVEN_M):pick(GIVEN_F);
+  return `${pick(SURNAMES)} ${mid} ${given}`;
+}
+function genPhone(){return '0'+pick([3,5,7,8,9])+String(ri(10000000,99999999));}
+function genAddress(){return `Số ${ri(2,220)}, đường ${pick(STREETS)}, quận ${pick(DISTRICTS)}, Hà Nội`;}
+
+function remark(score){
+  if(score>=8.5) return pick(['Xuất sắc, phát huy nhé.','Nắm chắc kiến thức, trình bày tốt.','Rất tiến bộ so với đầu kỳ.']);
+  if(score>=6.5) return pick(['Ổn định, cần chăm chỉ hơn.','Khá, chú ý phần bài tập nâng cao.','Có tiến bộ, cần duy trì.']);
+  if(score>=5) return pick(['Trung bình, cần ôn lại kiến thức nền.','Cần cố gắng thêm ở các bài kiểm tra.','Còn hổng kiến thức cơ bản.']);
+  return pick(['Cần kèm cặp thêm, trao đổi với phụ huynh.','Yếu, nguy cơ không đạt yêu cầu.','Cần lập kế hoạch phụ đạo riêng.']);
+}
+
+function genStudent(cls,idx){
+  const gender = rnd()<0.5?'M':'F';
+  const name = genName(gender);
+  const baseAvg = rf(4.8,9.6);
+  const trendDelta = rf(-1.4,1.6);
+  const w1 = Math.max(3,Math.min(10,baseAvg - trendDelta*0.6 + rf(-0.3,0.3)));
+  const mid = Math.max(3,Math.min(10,baseAvg - trendDelta*0.2 + rf(-0.3,0.3)));
+  const fin = Math.max(3,Math.min(10,baseAvg + trendDelta*0.4 + rf(-0.2,0.2)));
+  const attendance = ri(74,100);
+  const subjScores = {};
+  SUBJECTS.forEach(s=>{ subjScores[s] = Math.max(3,Math.min(10, rf(baseAvg-1.4, baseAvg+1.4)));});
+  const attitudeMonths = ['Th9','Th10','Th11','Th12','Th1','Th2','Th3','Th4','Th5'].map((m,i)=>{
+    const dip = i===3? -2.2 : (i===2? -0.6:0);
+    const att = Math.max(2,Math.min(10, 6 + trendDelta*0.5 + dip + rf(-0.6,0.6)));
+    const grade = Math.max(30,Math.min(100,(baseAvg*10) + trendDelta*4 + dip*3 + rf(-4,4)));
+    return {m, attitude:+att.toFixed(1), grade:+grade.toFixed(0)};
+  });
+  const excused = ri(0,6), unexcused = ri(0,5), violations = ri(0,4), commend = ri(0,5);
+  const logs = pickN(ATT_LOG_POOL, ri(2,4)).map(t=>({date:fmtDate(addDays(new Date(), -ri(2,120))), note:t}));
+  return {
+    id:`${cls.id}-${idx+1}`, cls:cls.id, name, gender, stt:idx+1,
+    phone:genPhone(), address:genAddress(), family:pick(FAMILY_T),
+    gpa:+baseAvg.toFixed(1), gpaMid:+mid.toFixed(1), gpaFinal:+fin.toFixed(1), gpaWeek1:+w1.toFixed(1),
+    trend: fin-w1, attendance, xtra: pickN(XTRA, ri(0,3)),
+    subjScores, attitudeMonths, excused, unexcused, violations, commend, logs,
+    strong: (fin-w1) > 0.7, weak: (fin-w1) < -0.7 || attendance < 82,
+  };
+}
+
+const CLASS_DEFS=[
+  {id:'6A1', grade:6, gvcn:'Trần Văn Bình', count:32},
+  {id:'7A2', grade:7, gvcn:'Phạm Thị Hoa', count:34},
+  {id:'8A1', grade:8, gvcn:TEACHER.name, count:33},
+  {id:'9A3', grade:9, gvcn:'Đỗ Minh Quang', count:36},
+];
+const CLASSES = CLASS_DEFS.map(c=>({...c, students:[]}));
+CLASSES.forEach(c=>{ for(let i=0;i<c.count;i++) c.students.push(genStudent(c,i)); });
+const ALL_STUDENTS = CLASSES.flatMap(c=>c.students);
+function studentById(id){return ALL_STUDENTS.find(s=>s.id===id);}
+function classById(id){return CLASSES.find(c=>c.id===id);}
+
+function classAvg(cls,key){ const arr=cls.students.map(s=>typeof key==='function'?key(s):s[key]); return arr.reduce((a,b)=>a+b,0)/arr.length; }
+function overallAttendance(){ return CLASSES.reduce((a,c)=>a+classAvg(c,'attendance'),0)/CLASSES.length; }
+
+/* ---------- schedule ---------- */
+const PERIODS=['7:00 - 7:45','7:50 - 8:35','8:45 - 9:30','9:40 - 10:25','10:35 - 11:20'];
+const ROOMS=['P.201','P.202','P.305','P.402','Phòng Lab 1','Sân đa năng'];
+const DAY_LABELS=['T2','T3','T4','T5','T6','T7'];
+const LESSON_TOPICS=['Số nguyên và phép tính','Phân số và hỗn số','Biểu thức đại số','Phương trình bậc nhất một ẩn','Bất phương trình bậc nhất một ẩn','Hệ hai phương trình bậc nhất hai ẩn','Hàm số và đồ thị','Định lý Pytago','Tam giác đồng dạng','Đường tròn','Thống kê và xác suất cơ bản','Hình lăng trụ đứng','Ôn tập chương','Luyện tập chung'];
+const LESSON_NOTES=['Mang theo máy tính cầm tay.','Kiểm tra miệng đầu giờ.','Nộp bài tập về nhà của chương trước.','Chuẩn bị thước kẻ, compa, ê-ke.','Hoạt động nhóm 4 học sinh.','Ôn tập chuẩn bị kiểm tra 15 phút.','Không có ghi chú đặc biệt.','Photo thêm phiếu bài tập cho lớp.'];
+const WEEK_SCHEDULE = DAY_LABELS.map(()=>{
+  const slots = new Array(5).fill(null);
+  const teachCount = ri(3,5);
+  pickN([0,1,2,3,4], teachCount).forEach(p=>{
+    const cls = pick(CLASSES);
+    slots[p] = {classId:cls.id, room:pick(ROOMS), topic:pick(LESSON_TOPICS), note:pick(LESSON_NOTES)};
+  });
+  return slots;
+});
+const todayJs = new Date().getDay();
+const todayIdx = todayJs===0 ? 5 : todayJs-1; // Sun -> Sat slot, Mon(1)->0 ... Sat(6)->5
+
+/* ---------- reminders (persisted deltas) ---------- */
+const SEED_REMINDERS = [
+  {id:'r1', text:'Nộp bảng điểm giữa kỳ lớp 8A1', due:addDays(new Date(),2).toISOString()},
+  {id:'r2', text:'Họp phụ huynh lớp 6A1', due:addDays(new Date(),4).toISOString()},
+  {id:'r3', text:'Chấm bài kiểm tra 15 phút lớp 9A3', due:addDays(new Date(),1).toISOString()},
+  {id:'r4', text:'Cập nhật học bạ số học kỳ 1', due:addDays(new Date(),5).toISOString()},
+  {id:'r5', text:'Gửi khảo sát đánh giá cho GV bộ môn', due:addDays(new Date(),3).toISOString()},
+];
+let userReminders = ls_get('sogon_reminders_v3', []);
+let dismissedSeedIds = ls_get('sogon_dismissed_seed_v1', []);
+function allReminders(){ return [...SEED_REMINDERS.filter(r=>!dismissedSeedIds.includes(r.id)), ...userReminders].sort((a,b)=>new Date(a.due)-new Date(b.due)); }
+
+/* ---------- feedback history ---------- */
+let feedbackHistory = ls_get('sogon_feedback_v3', []);
+
+/* ---------- library ---------- */
+const LIB_SEED = {};
+CLASSES.forEach(c=>{
+  LIB_SEED[c.id] = [
+    {id:`seed-${c.id}-0`, name:`Bảng điểm giữa kỳ ${c.id}.xlsx`, type:'xlsx', size:'48 KB', date:fmtDate(addDays(new Date(),-14))},
+    {id:`seed-${c.id}-1`, name:`Học bạ số - ${c.id}.pdf`, type:'pdf', size:'1.2 MB', date:fmtDate(addDays(new Date(),-30))},
+    {id:`seed-${c.id}-2`, name:`Danh sách lớp ${c.id}.xlsx`, type:'xlsx', size:'22 KB', date:fmtDate(addDays(new Date(),-60))},
+    {id:`seed-${c.id}-3`, name:`Biên bản họp phụ huynh.docx`, type:'docx', size:'340 KB', date:fmtDate(addDays(new Date(),-9))},
+  ];
+});
+let libUser = ls_get('sogon_library_v3', {});
+const UPLOADED_BLOBS = {}; // in-memory only (id -> real File object); not persisted across reloads
+
+/* ---------- attendance today (persisted) ---------- */
+let attToday = ls_get('sogon_att_today_v3', {}); // {classId: {studentId: 'present'|'absent'|'late'}}
+let classFeedback = ls_get('sogon_classfeedback_v3', {}); // {classId: [{subject,text,date}]}
+
+/* ---------- notifications ---------- */
+const NOTIFS=[
+  {tag:'Giáo viên bộ môn', text:'Thầy Hùng (Vật lý) vừa gửi nhận xét lớp 8A1 tiết 3.', time:'5 phút trước', unread:true},
+  {tag:'Hệ thống', text:'Nhắc nhở: còn 4 ngày đến hạn nộp bảng điểm giữa kỳ lớp 8A1.', time:'1 giờ trước', unread:true},
+  {tag:'Giáo viên bộ môn', text:'Cô Hoa (Ngữ văn) đã cập nhật điểm miệng lớp 9A3.', time:'3 giờ trước', unread:false},
+  {tag:'Hệ thống', text:'Học bạ số lớp 9A3 đã được đồng bộ thành công.', time:'Hôm qua', unread:false},
+];
+
+/* ================= APP STATE / ROUTER ================= */
+const NAV=[
+  {id:'dashboard', label:'Trang chủ', icon:'home'},
+  {id:'academics', label:'Học tập & Tiến độ', icon:'book'},
+  {id:'students', label:'Quản lý Học sinh', icon:'users'},
+  {id:'attendance', label:'Điểm danh', icon:'check'},
+  {id:'library', label:'Thư viện & Học bạ số', icon:'archive'},
+  {id:'communication', label:'Kênh Liên lạc', icon:'chat'},
+];
+const state = { page:'dashboard', schedView:'day', studentsClass:null, studentDetail:null, attClass:TEACHER.homeroom, libClass:CLASSES[0].id, commClass:CLASSES[0].id, monthCursor:new Date() };
+
+function renderNav(){
+  $('#navlist').innerHTML = NAV.map(n=>`
+    <button class="navlink ${state.page===n.id?'active':''}" data-action="nav" data-page="${n.id}">
+      ${icon(n.icon,19)}<span class="lbl">${n.label}</span>
+    </button>`).join('');
+}
+
+function go(page){ state.page=page; state.studentsClass=null; state.studentDetail=null; renderNav(); renderPage(); window.scrollTo({top:0}); }
+
+/* ================= TOPBAR ================= */
+function tickDate(){ $('#dateBadge').innerHTML = `${icon('calendar',15)} <span>${fmtDateLong(new Date())}</span>`; }
+function renderNotifCount(){ const n=NOTIFS.filter(x=>x.unread).length; $('#notifCount').textContent = n>0? n : ''; $('#notifCount').style.display = n>0?'flex':'none'; }
+function renderAvatar(){ $('#avatarBtn').textContent = TEACHER.initials; }
+
+function toggleNotifPop(){
+  if($('#notifPop').innerHTML){ $('#notifPop').innerHTML=''; return; }
+  closeAllPops();
+  $('#notifPop').innerHTML = `<div class="pop">
+    <div class="pop-head"><span>Thông báo</span><button class="btn-ghost" data-action="mark-read-all">Đánh dấu đã đọc</button></div>
+    <div class="pop-body">${NOTIFS.map((n,i)=>`
+      <div class="notif-item ${n.unread?'unread':''}" data-action="notif-item" data-idx="${i}" style="cursor:pointer">
+        <span class="notif-tag">${n.tag}</span>
+        <div class="notif-txt"><p>${n.text}</p><div class="notif-time">${n.time}</div></div>
+      </div>`).join('')}</div>
+  </div>`;
+}
+function toggleProfilePop(){
+  if($('#profilePop').innerHTML){ $('#profilePop').innerHTML=''; return; }
+  closeAllPops();
+  $('#profilePop').innerHTML = `<div class="pop profile-pop">
+    <div class="profile-head"><div class="avatar-btn">${TEACHER.initials}</div>
+      <div><h4 style="font-size:15px">Cô ${TEACHER.name}</h4><p style="font-size:12px;color:var(--ink-faint)">GVCN lớp ${TEACHER.homeroom}</p></div></div>
+    <div class="profile-row"><span>Tuổi</span><span>${TEACHER.age}</span></div>
+    <div class="profile-row"><span>Trường</span><span>${TEACHER.school}</span></div>
+    <div class="profile-row"><span>Môn giảng dạy</span><span>${TEACHER.subject}</span></div>
+    <div class="profile-row"><span>Lớp chủ nhiệm</span><span>${TEACHER.homeroom}</span></div>
+    <button class="logout-btn" data-action="logout">${icon('settings',14)} Đăng xuất</button>
+  </div>`;
+}
+
+/* ================= BANNER (automated system prompt) ================= */
+function renderBanner(){
+  if(ls_get('sogon_banner_dismissed', false)){ $('#bannerSlot').innerHTML=''; return; }
+  $('#bannerSlot').innerHTML = `<div class="banner">
+    <div class="banner-icon">${icon('megaphone',18)}</div>
+    <p>Đã hết 1 tuần làm việc, giáo viên chủ nhiệm có muốn tạo cuộc khảo sát đánh giá học sinh lớp mình cho các giáo viên bộ môn không?</p>
+    <div class="btnrow">
+      <button class="btn btn-outline btn-sm" data-action="banner-dismiss">Để sau</button>
+      <button class="btn btn-primary btn-sm" data-action="banner-create">Tạo khảo sát</button>
+    </div>
+  </div>`;
+}
+
+/* ================= DASHBOARD ================= */
+let chartRefs = {};
+function destroyChart(key){ if(chartRefs[key]){ chartRefs[key].destroy(); delete chartRefs[key]; } }
+
+function daysLeftLabel(dueIso){
+  const due = new Date(dueIso); const now = new Date();
+  const diffMs = due-now; const diffH = diffMs/3600000;
+  if(diffH<0) return {cls:'late', text:'Quá hạn'};
+  const d = Math.floor(diffH/24), h = Math.floor(diffH%24), m = Math.floor((diffH*60)%60);
+  const text = d>0 ? `Còn ${d} ngày ${h}h` : `Còn ${h}h ${m}p`;
+  return {cls: diffH<24? 'soon': diffH<96? 'soon':'ok', text};
+}
+
+function pageDashboard(){
+  const soonest = allReminders()[0];
+  const soonestInfo = soonest? daysLeftLabel(soonest.due):null;
+  const totalStudents = ALL_STUDENTS.length;
+  const missedClasses = 2;
+  const kpis=[
+    {label:'Tỷ lệ chuyên cần', val:overallAttendance().toFixed(0)+'%', delta:'+5% so với tháng trước', up:true, ic:'check', bg:'rgba(96,108,56,.14)', col:'var(--olive)'},
+    {label:'Học sinh đang quản lý', val:totalStudents, delta:'+8 so với tháng trước', up:true, ic:'users', bg:'rgba(221,161,94,.22)', col:'var(--rust)'},
+    {label:'Tổng số lớp giảng dạy', val:CLASSES.length, delta:'+1 so với học kỳ trước', up:true, ic:'book', bg:'rgba(40,54,24,.12)', col:'var(--olive-dark)'},
+    {label:'Buổi dạy bị bỏ lỡ', val:missedClasses, delta:'+2 so với tháng trước', up:false, ic:'alert', bg:'rgba(163,64,47,.12)', col:'var(--bad)'},
+  ];
+  const todaySlots = WEEK_SCHEDULE[todayIdx];
+  const nextClassIdx = todaySlots.findIndex(s=>s);
+  const nextClass = nextClassIdx>-1 ? classById(todaySlots[nextClassIdx].classId) : null;
+
+  return `
+  <div class="page-head"><div><h2>Chào ${TEACHER.name.split(' ').slice(-2).join(' ')} 👋</h2><p>Chúc một ngày dạy học thật hiệu quả và nhiều năng lượng!</p></div></div>
+
+  <div class="kpi-grid">
+    ${kpis.map(k=>`<div class="kpi">
+      <div class="kpi-top"><div class="kpi-ic" style="background:${k.bg};color:${k.col}">${icon(k.ic,19)}</div><span class="kpi-label">${k.label}</span></div>
+      <div class="kpi-val">${k.val}</div>
+      <div class="kpi-delta ${k.up?'up':'down'}">${icon(k.up?'up':'down',11)} ${k.delta}</div>
+    </div>`).join('')}
+  </div>
+
+  ${nextClass?`<div class="card card-pad" style="margin-bottom:16px">
+    <div class="card-head"><h3>${icon('clock',17)} Tiết học gần nhất hôm nay</h3></div>
+    <div class="sched-item" style="border:none;padding:0">
+      <div class="sched-time">${PERIODS[nextClassIdx]}</div>
+      <div class="sched-body">
+        <h4>${TEACHER.subject} — Lớp ${nextClass.id}</h4>
+        <div class="sched-meta"><span>${icon('pin',13)} ${todaySlots[nextClassIdx].room}</span><span>${icon('users',13)} ${nextClass.students.length} học sinh</span></div>
+      </div>
+      <button class="btn btn-primary btn-sm" data-action="quick-attendance" data-class="${nextClass.id}">Điểm danh ngay</button>
+    </div>
+  </div>`:''}
+
+  <div class="grid2">
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card card-pad">
+        <div class="card-head">
+          <h3>${icon('calendar',17)} Lịch giảng dạy</h3>
+          <div class="sched-toggle">
+            <button data-action="sched-view" data-view="day" class="${state.schedView==='day'?'active':''}">Ngày</button>
+            <button data-action="sched-view" data-view="week" class="${state.schedView==='week'?'active':''}">Tuần</button>
+            <button data-action="sched-view" data-view="month" class="${state.schedView==='month'?'active':''}">Tháng</button>
+          </div>
+        </div>
+        <div id="schedBody">${renderSchedBody()}</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card card-pad">
+        <div class="card-head"><h3>${icon('bell',17)} Nhắc việc & Hạn chót</h3></div>
+        ${soonestInfo && soonestInfo.cls!=='ok' ? `<div class="chip rust" style="margin-bottom:10px">${icon('alert',12)} ${soonestInfo.text} — ${soonest.text}</div>`:''}
+        <div id="reminderList">${renderReminderList()}</div>
+        <button class="btn btn-outline btn-sm" style="width:100%;margin-top:10px;justify-content:center" data-action="add-reminder">${icon('plus',14)} Thêm nhắc việc</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderSchedBody(){
+  if(state.schedView==='day'){
+    const slots = WEEK_SCHEDULE[todayIdx];
+    const items = slots.map((s,i)=>s? {i,s}:null).filter(Boolean);
+    if(!items.length) return `<div class="emptystate">${icon('calendar',30)}<div>Hôm nay không có tiết dạy nào.</div></div>`;
+    return items.map(({i,s})=>{
+      const c = classById(s.classId);
+      return `<div class="sched-item">
+        <div class="sched-time">${PERIODS[i]}</div>
+        <div class="sched-body">
+          <h4>${TEACHER.subject} — Lớp ${c.id}</h4>
+          <div class="sched-meta"><span>${icon('pin',13)} ${s.room}</span><span>${icon('users',13)} ${c.students.length} học sinh</span></div>
+        </div>
+        <button class="btn btn-outline btn-sm" data-action="open-event" data-class="${c.id}" data-time="${PERIODS[i]}" data-room="${s.room}" data-topic="${esc(s.topic)}" data-note="${esc(s.note)}">Chi tiết</button>
+      </div>`;
+    }).join('');
+  }
+  if(state.schedView==='week'){
+    let html = `<div class="scrollx"><div class="weekgrid">
+      <div></div>${DAY_LABELS.map(d=>`<div class="wg-h">${d}</div>`).join('')}`;
+    PERIODS.forEach((p,pi)=>{
+      html += `<div class="wg-time">T${pi+1}</div>`;
+      DAY_LABELS.forEach((d,di)=>{
+        const s = WEEK_SCHEDULE[di][pi];
+        html += `<div class="wg-cell">${s? `<div class="wg-block" data-action="open-event" data-class="${s.classId}" data-time="${p}" data-room="${s.room}" data-topic="${esc(s.topic)}" data-note="${esc(s.note)}" style="cursor:pointer">${s.classId}<span>${s.room}</span></div>`:''}</div>`;
+      });
+    });
+    html += `</div></div>`;
+    return html;
+  }
+  // month
+  const cur = state.monthCursor;
+  const y=cur.getFullYear(), m=cur.getMonth();
+  const first = new Date(y,m,1);
+  const startOffset = (first.getDay()+6)%7; // Monday-first
+  const daysInMonth = new Date(y,m+1,0).getDate();
+  const remDates = allReminders().map(r=>fmtDate(new Date(r.due)));
+  const todayStr = fmtDate(new Date());
+  let cells='';
+  for(let i=0;i<startOffset;i++) cells+=`<div class="mc-day empty"></div>`;
+  for(let d=1;d<=daysInMonth;d++){
+    const dateObj = new Date(y,m,d);
+    const wd = dateObj.getDay();
+    const isClassDay = wd>=1 && wd<=6;
+    const dStr = fmtDate(dateObj);
+    const isToday = dStr===todayStr;
+    const hasReminder = remDates.includes(dStr);
+    cells += `<div class="mc-day ${isToday?'today':''}" data-action="month-day" data-date="${dStr}">
+      <span>${d}</span>
+      <div class="mc-dots">${isClassDay?`<span class="mc-dot" style="background:var(--olive)"></span>`:''}${hasReminder?`<span class="mc-dot" style="background:var(--rust)"></span>`:''}</div>
+    </div>`;
+  }
+  return `<div class="monthcal">${['T2','T3','T4','T5','T6','T7','CN'].map(d=>`<div class="mc-h">${d}</div>`).join('')}${cells}</div>
+  <p style="font-size:11.5px;color:var(--ink-faint);margin-top:10px">${icon('calendar',11)} Ngày có tiết dạy &nbsp; ${icon('alert',11)} Ngày có hạn chót công việc</p>`;
+}
+
+function renderReminderList(){
+  return allReminders().slice(0,5).map(r=>{
+    const info = daysLeftLabel(r.due);
+    return `<div class="reminder-item">
+      <div class="reminder-ck" data-action="reminder-done" data-id="${r.id}"></div>
+      <div class="reminder-body"><h4>${esc(r.text)}</h4><p>Hạn: ${fmtDate(new Date(r.due))}</p></div>
+      <span class="countdown ${info.cls}">${info.text}</span>
+    </div>`;
+  }).join('');
+}
+
+/* ================= ACADEMICS ================= */
+function pageAcademics(){
+  const struggling = ALL_STUDENTS.filter(s=>s.weak).sort((a,b)=>a.trend-b.trend).slice(0,4);
+  const remarkable = ALL_STUDENTS.filter(s=>s.strong).sort((a,b)=>b.trend-a.trend).slice(0,4);
+  return `
+  <div class="page-head"><div><h2>Học tập & Tiến độ</h2><p>Theo dõi tiến độ học tập và gửi phản hồi tới giáo viên bộ môn.</p></div>
+    <button class="btn btn-primary" data-action="open-feedback-modal">${icon('send',15)} Tạo phiếu phản hồi</button>
+  </div>
+
+  <div class="grid2">
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card card-pad">
+        <div class="card-head"><h3>${icon('up',17)} Biểu đồ điểm học tập theo cột mốc</h3></div>
+        <div style="position:relative;height:260px"><canvas id="scoreChart"></canvas></div>
+      </div>
+      <div class="card card-pad">
+        <div class="card-head"><h3>${icon('bell',17)} Nhắc việc & Cảnh báo</h3></div>
+        <div id="reminderList2">${renderReminderList()}</div>
+        <button class="btn btn-outline btn-sm" style="width:100%;margin-top:10px;justify-content:center" data-action="add-reminder">${icon('plus',14)} Thêm nhắc việc</button>
+      </div>
+      <div class="card card-pad">
+        <div class="card-head"><h3>${icon('send',17)} Lịch sử phản hồi đã gửi</h3></div>
+        ${feedbackHistory.length? feedbackHistory.slice().reverse().map(f=>`
+          <div class="eval-card"><h5>${esc(f.subject)} — Lớp ${esc(f.targetClass)}</h5><p>${esc(f.classFeedback)}</p><div class="who">Gửi bởi ${esc(f.teacherName)} · ${f.date}</div></div>
+        `).join(''): `<div class="emptystate">${icon('send',26)}<div>Chưa có phiếu phản hồi nào được gửi.</div></div>`}
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card card-pad">
+        <div class="card-head"><h3>${icon('alert',17)} Học sinh cần chú ý</h3></div>
+        ${struggling.length? struggling.map(s=>`<div class="hl-student" data-action="goto-student" data-student="${s.id}" style="cursor:pointer"><div class="hl-avatar">${initials(s.name)}</div>
+          <div class="hl-body"><h4>${esc(s.name)}</h4><div class="meta">Lớp ${s.cls} · GPA ${s.gpaFinal}</div><p>Điểm số giảm so với đầu kỳ, chuyên cần ${s.attendance}%. Cần theo dõi thêm về thái độ học tập.</p></div>
+        </div>`).join(''): `<div class="emptystate">${icon('star',24)}<div>Chưa ghi nhận học sinh cần chú ý đặc biệt.</div></div>`}
+      </div>
+      <div class="card card-pad">
+        <div class="card-head"><h3>${icon('star',17)} Học sinh tiến bộ vượt bậc</h3></div>
+        ${remarkable.length? remarkable.map(s=>`<div class="hl-student" data-action="goto-student" data-student="${s.id}" style="cursor:pointer"><div class="hl-avatar">${initials(s.name)}</div>
+          <div class="hl-body"><h4>${esc(s.name)}</h4><div class="meta">Lớp ${s.cls} · GPA ${s.gpaFinal}</div><p>Tăng ${s.trend.toFixed(1)} điểm so với đầu kỳ, tinh thần học tập tích cực và ổn định.</p></div>
+        </div>`).join(''): `<div class="emptystate">${icon('star',24)}<div>Chưa ghi nhận học sinh tiến bộ vượt bậc trong kỳ này.</div></div>`}
+      </div>
+    </div>
+  </div>`;
+}
+function initials(name){ const p=name.trim().split(' '); return (p[p.length-2]?.[0]||'')+(p[p.length-1]?.[0]||''); }
+
+function chartLibMissing(canvasId){
+  const ctx = document.getElementById(canvasId); if(!ctx) return true;
+  if(!window.Chart){
+    ctx.parentElement.innerHTML = `<div class="emptystate">${icon('alert',26)}<div>Không tải được thư viện biểu đồ (Chart.js) từ CDN.<br>Kiểm tra kết nối mạng rồi tải lại trang.</div></div>`;
+    return true;
+  }
+  return false;
+}
+function mountScoreChart(){
+  if(chartLibMissing('scoreChart')) return;
+  const ctx = document.getElementById('scoreChart');
+  destroyChart('score');
+  const labels=['1 tuần','Giữa kì','Cuối kì'];
+  const COLORS=['#606C38','#BC6C25','#283618','#DDA15E','#8a9a56'];
+  const datasets = CLASSES.map((c,i)=>({
+    label:c.id,
+    data:[classAvg(c,'gpaWeek1'),classAvg(c,'gpaMid'),classAvg(c,'gpaFinal')].map(v=>+v.toFixed(2)),
+    backgroundColor:COLORS[i%COLORS.length],
+    borderRadius:5, borderSkipped:false, maxBarThickness:34,
+  }));
+  chartRefs.score = new Chart(ctx,{type:'bar',data:{labels,datasets},options:{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{family:"'Be Vietnam Pro'",size:11}}}},
+    scales:{y:{min:0,max:10,ticks:{font:{family:"'Be Vietnam Pro'",size:11}}},x:{ticks:{font:{family:"'Be Vietnam Pro'",size:11}},grid:{display:false}}}
+  }});
+}
+
+/* ================= STUDENTS ================= */
+function pageStudents(){
+  if(state.studentDetail) return studentDetailView(studentById(state.studentDetail));
+  if(state.studentsClass) return rosterView(classById(state.studentsClass));
+  return `
+  <div class="page-head"><div><h2>Quản lý Học sinh</h2><p>Chọn một lớp để xem danh sách và hồ sơ chi tiết học sinh.</p></div></div>
+  <div class="class-grid">
+    ${CLASSES.map(c=>`<button class="classcard" data-action="open-class" data-class="${c.id}">
+      <div class="classcard-top"><div class="classtag">${c.id}</div>${c.id===TEACHER.homeroom?`<span class="chip good">Chủ nhiệm</span>`:''}</div>
+      <h4>Lớp ${c.id}</h4>
+      <div class="meta">GVCN: ${esc(c.gvcn)}</div>
+      <div class="divider-dashed" style="margin:6px 0"></div>
+      <div class="stat-mini"><span>${c.students.length} học sinh</span><span>GPA TB ${classAvg(c,'gpaFinal').toFixed(1)}</span></div>
+      <div class="progress"><span style="width:${classAvg(c,'attendance').toFixed(0)}%"></span></div>
+      <div class="stat-mini"><span>Chuyên cần</span><span>${classAvg(c,'attendance').toFixed(0)}%</span></div>
+    </button>`).join('')}
+  </div>`;
+}
+
+function rosterView(c){
+  return `
+  <div class="page-head">
+    <div><button class="btn-ghost" data-action="back-to-classes">${icon('chevL',14)} Tất cả lớp</button><h2 style="margin-top:6px">Lớp ${c.id}</h2><p>${c.students.length} học sinh · GVCN ${esc(c.gvcn)}</p></div>
+  </div>
+  <div class="card">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--border-soft)">
+      <input id="rosterSearch" placeholder="Tìm học sinh trong lớp…" style="width:100%;max-width:320px;border:1px solid var(--border);border-radius:var(--r-sm);padding:9px 12px;font-family:inherit;background:var(--bg);color:var(--ink)">
+    </div>
+    <div class="scrollx"><table style="min-width:760px">
+      <thead><tr><th>#</th><th>Họ tên</th><th>Số điện thoại</th><th>Địa chỉ</th><th>GPA</th><th>Chuyên cần</th><th>Hoạt động NK</th><th></th></tr></thead>
+      <tbody id="rosterBody">${rosterRows(c.students)}</tbody>
+    </table></div>
+  </div>`;
+}
+function rosterRows(list){
+  return list.map(s=>`<tr style="cursor:pointer" data-action="open-student" data-student="${s.id}">
+    <td>${s.stt}</td>
+    <td class="tbl-name">${esc(s.name)} ${s.weak?`<span class="badge-flag">${icon('alert',10)}</span>`:''}${s.strong?`<span class="badge-flag" style="color:var(--good)">${icon('star',10)}</span>`:''}</td>
+    <td>${s.phone}</td>
+    <td>${esc(s.address)}</td>
+    <td><b style="color:var(--ink)">${s.gpaFinal}</b></td>
+    <td>${s.attendance}%</td>
+    <td>${s.xtra.length? esc(s.xtra[0])+(s.xtra.length>1?` +${s.xtra.length-1}`:''):'—'}</td>
+    <td><button class="btn-ghost">Xem →</button></td>
+  </tr>`).join('');
+}
+
+function studentDetailView(s){
+  const c = classById(s.cls);
+  const subjRows = SUBJECTS.map(sub=>`<tr><td class="tbl-name">${sub}</td><td>${s.subjScores[sub].toFixed(1)}</td><td>${remark(s.subjScores[sub])}</td></tr>`).join('');
+  return `
+  <div class="page-head">
+    <div><button class="btn-ghost" data-action="back-to-roster" data-class="${c.id}">${icon('chevL',14)} Lớp ${c.id}</button>
+    <h2 style="margin-top:6px">${esc(s.name)}</h2><p>Lớp ${c.id} · STT ${s.stt} ${s.weak?`<span class="chip bad" style="margin-left:6px">${icon('alert',11)} Cảnh báo sớm</span>`:''}</p></div>
+  </div>
+
+  <div class="grid2">
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card card-pad">
+        <div class="card-head"><h3>${icon('users',17)} Thông tin cá nhân</h3></div>
+        <div class="profile-row"><span>Số điện thoại</span><span>${s.phone}</span></div>
+        <div class="profile-row"><span>Địa chỉ</span><span>${esc(s.address)}</span></div>
+        <div class="profile-row"><span>Hoàn cảnh gia đình</span><span>${esc(s.family)}</span></div>
+        <div class="profile-row"><span>Hoạt động ngoại khóa</span><span>${s.xtra.join(', ')||'Không'}</span></div>
+      </div>
+      <div class="card card-pad">
+        <div class="card-head"><h3>${icon('sparkle',17)} Biểu đồ điểm theo cột mốc (cá nhân)</h3></div>
+        <div style="position:relative;height:220px"><canvas id="stuMilestoneChart"></canvas></div>
+      </div>
+      <div class="card card-pad">
+        <div class="card-head"><h3>${icon('up',17)} Biểu đồ thái độ & điểm số theo tháng</h3></div>
+        <div style="position:relative;height:280px"><canvas id="attChart"></canvas></div>
+      </div>
+      <div class="card card-pad">
+        <div class="card-head"><h3>${icon('sparkle',17)} Bảng 2 — Điểm theo môn học</h3></div>
+        <div class="scrollx"><table><thead><tr><th>Môn</th><th>Điểm TB</th><th>Nhận xét GV</th></tr></thead><tbody>${subjRows}</tbody></table></div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card card-pad">
+        <div class="card-head"><h3>${icon('star',17)} Bảng 1 — GPA & Chuyên cần</h3></div>
+        <table>
+          <tr><td class="tbl-name">GPA Giữa kỳ</td><td>${s.gpaMid}</td></tr>
+          <tr><td class="tbl-name">GPA Cuối kỳ</td><td>${s.gpaFinal}</td></tr>
+          <tr><td class="tbl-name">GPA Cả năm (ước tính)</td><td>${((s.gpaMid+s.gpaFinal)/2).toFixed(1)}</td></tr>
+          <tr><td class="tbl-name">Số lần khen thưởng</td><td>${s.commend}</td></tr>
+          <tr><td class="tbl-name">Số lần vi phạm</td><td>${s.violations}</td></tr>
+        </table>
+      </div>
+      <div class="card card-pad">
+        <div class="card-head"><h3>${icon('alert',17)} Bảng 3 — Chuyên cần & Nhật ký thái độ</h3></div>
+        <div class="profile-row"><span>Vắng có phép</span><span>${s.excused} buổi</span></div>
+        <div class="profile-row"><span>Vắng không phép</span><span>${s.unexcused} buổi</span></div>
+        <div class="profile-row"><span>Vi phạm nội quy</span><span>${s.violations} lần</span></div>
+        <div class="divider-dashed"></div>
+        ${s.logs.map(l=>`<div style="font-size:12px;color:var(--ink-soft);padding:5px 0"><b style="color:var(--ink)">${l.date}</b> — ${esc(l.note)}</div>`).join('')}
+      </div>
+      <div class="card card-pad">
+        <div class="card-head"><h3>${icon('chat',17)} Đánh giá đa giáo viên</h3></div>
+        <div class="eval-card"><h5>Giáo viên bộ môn — ${pick(SUBJECTS)}</h5><p>${remark(s.gpaFinal)} Thái độ học tập ${s.gpaFinal>=7?'tích cực, chủ động':'cần cải thiện, đôi lúc thiếu tập trung'}. ${s.violations>1?'Có biểu hiện bất thường cần lưu ý.':'Không có biểu hiện bất thường.'}</p><div class="who">Cập nhật ${fmtDate(addDays(new Date(),-ri(1,10)))}</div></div>
+        <div class="eval-card"><h5>Giáo viên chủ nhiệm — ${esc(c.gvcn)}</h5><p>Học lực ${s.gpaFinal>=8?'giỏi':s.gpaFinal>=6.5?'khá':s.gpaFinal>=5?'trung bình':'yếu'}, hạnh kiểm ${s.violations<=1?'tốt':'cần theo dõi'}. Chuyên cần đạt ${s.attendance}%. Tham gia ${s.xtra.length} hoạt động ngoại khóa${s.xtra.length? ' ('+s.xtra.join(', ')+')':''}.</p><div class="who">Cập nhật ${fmtDate(addDays(new Date(),-ri(1,5)))}</div></div>
+      </div>
+      <div class="aisummary">
+        <div class="tag">${icon('sparkle',13)} Nhận định tổng hợp</div>
+        <p>${aiSummaryFor(s)}</p>
+        <div class="note">Được tạo tự động dựa trên dữ liệu điểm số, chuyên cần và phản hồi giáo viên đã ghi nhận.</div>
+      </div>
+    </div>
+  </div>`;
+}
+function aiSummaryFor(s){
+  const trendTxt = s.trend>0.5? `có xu hướng tiến bộ rõ rệt (tăng ${s.trend.toFixed(1)} điểm so với đầu kỳ)` : s.trend< -0.5? `có dấu hiệu sa sút (giảm ${Math.abs(s.trend).toFixed(1)} điểm so với đầu kỳ)`:`duy trì phong độ ổn định`;
+  const attTxt = s.attendance>=95? 'chuyên cần rất tốt':s.attendance>=85?'chuyên cần khá tốt':'chuyên cần cần được cải thiện';
+  const bestSubj = Object.entries(s.subjScores).sort((a,b)=>b[1]-a[1])[0][0];
+  const weakSubj = Object.entries(s.subjScores).sort((a,b)=>a[1]-b[1])[0][0];
+  return `${s.name} ${trendTxt}, GPA cuối kỳ hiện đạt ${s.gpaFinal}. Học sinh ${attTxt} (${s.attendance}%), nổi bật ở môn ${bestSubj} và cần chú ý bồi dưỡng thêm ở môn ${weakSubj}. ${s.violations>1?`Ghi nhận ${s.violations} lần vi phạm nội quy trong kỳ, giáo viên chủ nhiệm nên trao đổi trực tiếp với phụ huynh.`:'Không ghi nhận vi phạm đáng kể, tinh thần kỷ luật tốt.'} ${s.weak? 'Đề xuất đưa vào danh sách theo dõi cảnh báo sớm để có kế hoạch hỗ trợ kịp thời.':'Tiếp tục duy trì và khích lệ để phát huy tối đa năng lực.'}`;
+}
+function mountStudentMilestoneChart(s){
+  if(chartLibMissing('stuMilestoneChart')) return;
+  const ctx=document.getElementById('stuMilestoneChart');
+  destroyChart('stuMilestone');
+  chartRefs.stuMilestone = new Chart(ctx,{type:'bar',data:{
+    labels:['1 tuần','Giữa kì','Cuối kì'],
+    datasets:[{label:s.name, data:[s.gpaWeek1,s.gpaMid,s.gpaFinal], backgroundColor:['#606C38','#DDA15E','#BC6C25'], borderRadius:5, borderSkipped:false, maxBarThickness:60}]
+  },options:{responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{display:false}},
+    scales:{y:{min:0,max:10,ticks:{font:{family:"'Be Vietnam Pro'",size:11}}},x:{ticks:{font:{family:"'Be Vietnam Pro'",size:11}},grid:{display:false}}}
+  }});
+}
+function mountAttChart(s){
+  if(chartLibMissing('attChart')) return;
+  const ctx=document.getElementById('attChart');
+  destroyChart('att');
+  chartRefs.att = new Chart(ctx,{type:'line',data:{
+    labels:s.attitudeMonths.map(m=>m.m),
+    datasets:[
+      {label:'Điểm học tập (%)',data:s.attitudeMonths.map(m=>m.grade),borderColor:'#BC6C25',backgroundColor:'transparent',yAxisID:'y',tension:.35,pointRadius:3},
+      {label:'Thái độ (1-10)',data:s.attitudeMonths.map(m=>m.attitude),borderColor:'#606C38',backgroundColor:'transparent',yAxisID:'y1',tension:.35,pointRadius:3},
+    ]},options:{responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{family:"'Be Vietnam Pro'",size:11}}}},
+      scales:{y:{position:'left',min:0,max:100,title:{display:true,text:'%',font:{size:10}}},y1:{position:'right',min:0,max:10,grid:{drawOnChartArea:false},title:{display:true,text:'Thái độ',font:{size:10}}}}
+    }});
+}
+
+/* ================= ATTENDANCE ================= */
+function attStats(c, marks){
+  let present=0, late=0, absent=0;
+  c.students.forEach(s=>{
+    const st = marks[s.id]||'present';
+    if(st==='absent') absent++; else if(st==='late') late++; else present++;
+  });
+  const total = c.students.length;
+  const rate = Math.round((present+late)/total*100); // formula: (Total Present Students / Total Class Students) * 100 — "late" still counted present-in-room
+  return {present,late,absent,total,rate};
+}
+function attOverviewHTML(c, marks){
+  const st = attStats(c, marks);
+  return `<span class="chip good" id="attRateBadge">${st.rate}% có mặt</span>`;
+}
+function attBarAndCountsHTML(c, marks){
+  const st = attStats(c, marks);
+  return `
+    <div class="progress" style="margin-bottom:8px"><span id="attRateBar" style="width:${st.rate}%"></span></div>
+    <p id="attCountsLine" style="font-size:12px;color:var(--ink-faint);margin-bottom:14px">
+      Có mặt: <b style="color:var(--ink)">${st.present}</b> · Muộn: <b style="color:var(--ink)">${st.late}</b> · Vắng: <b style="color:var(--ink)">${st.absent}</b> / ${st.total} học sinh
+      &nbsp;·&nbsp; Công thức: (Có mặt ÷ Sĩ số) × 100%
+    </p>`;
+}
+function attRowHTML(c,s,marks){
+  const st = marks[s.id]||'present';
+  return `<tr id="attrow-${s.id}">
+    <td class="tbl-name">${esc(s.name)}</td>
+    <td><div class="progress" style="width:90px;display:inline-block;vertical-align:middle"><span style="width:${s.attendance}%"></span></div> <span style="font-size:11.5px">${s.attendance}%</span></td>
+    <td>
+      <div style="display:flex;gap:5px">
+        <button class="btn-sm btn ${st==='present'?'btn-primary':'btn-outline'}" data-action="mark-att" data-class="${c.id}" data-student="${s.id}" data-status="present">Có mặt</button>
+        <button class="btn-sm btn ${st==='late'?'btn-primary':'btn-outline'}" data-action="mark-att" data-class="${c.id}" data-student="${s.id}" data-status="late">Muộn</button>
+        <button class="btn-sm btn ${st==='absent'?'btn-primary':'btn-outline'}" data-action="mark-att" data-class="${c.id}" data-student="${s.id}" data-status="absent">Vắng</button>
+      </div>
+    </td>
+  </tr>`;
+}
+function pageAttendance(){
+  const c = classById(state.attClass);
+  attToday[c.id] = attToday[c.id]||{};
+  const marks = attToday[c.id];
+  const fbList = classFeedback[c.id]||[];
+  return `
+  <div class="page-head"><div><h2>Điểm danh</h2><p>Chọn lớp để điểm danh và gửi phản hồi cuối tiết.</p></div></div>
+  <div class="tabs" style="margin-bottom:16px">${CLASSES.map(cc=>`<button class="tab ${cc.id===c.id?'active':''}" data-action="att-class" data-class="${cc.id}">${cc.id}</button>`).join('')}</div>
+
+  <div class="grid2">
+    <div class="card card-pad">
+      <div class="card-head"><h3>${icon('check',17)} Điểm danh lớp ${c.id} — hôm nay</h3>${attOverviewHTML(c,marks)}</div>
+      <div id="attOverviewBlock">${attBarAndCountsHTML(c,marks)}</div>
+      <div class="scrollx"><table><thead><tr><th>Học sinh</th><th>Chuyên cần cả kỳ</th><th>Trạng thái hôm nay</th></tr></thead>
+      <tbody id="attRows">${c.students.map(s=>attRowHTML(c,s,marks)).join('')}</tbody></table></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card card-pad">
+        <div class="card-head"><h3>${icon('chat',17)} Phản hồi cuối tiết</h3></div>
+        <div class="field"><label>Môn học</label><select id="fbSubject">${SUBJECTS.map(s=>`<option>${s}</option>`).join('')}</select></div>
+        <div class="field"><label>Nhận xét tiết học</label><textarea id="fbText" placeholder="Không khí lớp học, mức độ tập trung, bài tập đã giao…"></textarea></div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center" data-action="submit-class-feedback" data-class="${c.id}">Gửi phản hồi</button>
+      </div>
+      <div class="card card-pad">
+        <div class="card-head"><h3>Nhật ký phản hồi lớp ${c.id}</h3></div>
+        ${fbList.length? fbList.slice().reverse().map(f=>`<div class="eval-card"><h5>${esc(f.subject)}</h5><p>${esc(f.text)}</p><div class="who">${f.date}</div></div>`).join(''): `<div class="emptystate">${icon('chat',24)}<div>Chưa có phản hồi nào hôm nay.</div></div>`}
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ================= LIBRARY ================= */
+const FILE_ICON = {xlsx:{ic:'sheet',bg:'rgba(76,122,61,.16)',col:'var(--good)'}, csv:{ic:'sheet',bg:'rgba(76,122,61,.16)',col:'var(--good)'}, pdf:{ic:'file',bg:'rgba(163,64,47,.12)',col:'var(--bad)'}, docx:{ic:'file',bg:'rgba(46,126,240,.14)',col:'#2E7EF0'}};
+function pageLibrary(){
+  const c = classById(state.libClass);
+  const files = [...(LIB_SEED[c.id]||[]), ...(libUser[c.id]||[])];
+  return `
+  <div class="page-head"><div><h2>Thư viện & Học bạ số</h2><p>Kho lưu trữ học bạ, bảng điểm và tệp theo từng lớp. Nhấp vào tệp để mở ở tab mới.</p></div></div>
+  <div class="tabs" style="margin-bottom:16px">${CLASSES.map(cc=>`<button class="tab ${cc.id===c.id?'active':''}" data-action="lib-class" data-class="${cc.id}">${cc.id}</button>`).join('')}</div>
+  <div class="card card-pad">
+    <div class="card-head">
+      <h3>${icon('archive',17)} Kho lớp ${c.id}</h3>
+      <label class="btn btn-primary btn-sm" style="cursor:pointer">${icon('upload',14)} Tải tệp lên<input type="file" id="libUpload" accept=".pdf,.xlsx,.xls,.csv,.docx" style="display:none"></label>
+    </div>
+    <div class="filebucket">
+      ${files.map(f=>{ const fi=FILE_ICON[f.type]||FILE_ICON.docx; return `
+      <button class="filecard" data-action="preview-file" data-id="${f.id}" data-name="${esc(f.name)}" data-type="${f.type}" title="Mở ở tab mới">
+        <div class="fic" style="background:${fi.bg};color:${fi.col}">${icon(fi.ic,17)}</div>
+        <h5>${esc(f.name)} <span style="opacity:.5">${icon('send',10)}</span></h5>
+        <div class="meta">${f.size} · ${f.date}</div>
+      </button>`;}).join('')}
+    </div>
+  </div>`;
+}
+
+/* ================= COMMUNICATION ================= */
+// Known real Zalo group links, keyed by "classId|groupKey". Add more as they're provided.
+const ZALO_LINKS = { '6A1|hs': 'https://zalo.me/g/8mbm76cacqpw9qyooiiq' };
+function pageCommunication(){
+  const c = classById(state.commClass);
+  const groups = [
+    {key:'hs', label:'Nhóm Zalo học sinh', sub:`${c.students.length} thành viên`},
+    {key:'ph', label:'Nhóm Zalo phụ huynh', sub:`${c.students.length} thành viên`},
+    {key:'gv', label:'Nhóm Zalo giáo viên bộ môn', sub:`${SUBJECTS.length} thành viên`},
+  ];
+  return `
+  <div class="page-head"><div><h2>Kênh Liên lạc</h2><p>Truy cập nhanh các nhóm liên lạc theo từng lớp.</p></div></div>
+  <div class="tabs" style="margin-bottom:16px">${CLASSES.map(cc=>`<button class="tab ${cc.id===c.id?'active':''}" data-action="comm-class" data-class="${cc.id}">${cc.id}</button>`).join('')}</div>
+  <div class="class-grid">
+    ${groups.map(g=>{
+      const link = ZALO_LINKS[`${c.id}|${g.key}`];
+      return `<div class="commcard">
+      <div class="zic">${icon('chat',20)}</div>
+      <div><h4>${g.label}</h4><p>${g.sub} · Lớp ${c.id}</p></div>
+      ${link
+        ? `<a class="btn btn-outline" href="${link}" target="_blank" rel="noopener">${icon('send',14)} Mở nhóm</a>`
+        : `<button class="btn btn-outline" data-action="open-zalo">${icon('send',14)} Mở nhóm</button>`}
+    </div>`;}).join('')}
+  </div>`;
+}
+
+/* ================= PAGE MOUNT ================= */
+function renderPage(){
+  const root = $('#pageRoot');
+  if(state.page==='dashboard') root.innerHTML = pageDashboard();
+  else if(state.page==='academics'){ root.innerHTML = pageAcademics(); requestAnimationFrame(mountScoreChart); }
+  else if(state.page==='students'){ root.innerHTML = pageStudents(); if(state.studentDetail){ const stu=studentById(state.studentDetail); requestAnimationFrame(()=>{ mountStudentMilestoneChart(stu); mountAttChart(stu); }); } }
+  else if(state.page==='attendance') root.innerHTML = pageAttendance();
+  else if(state.page==='library') root.innerHTML = pageLibrary();
+  else if(state.page==='communication') root.innerHTML = pageCommunication();
+  bindRosterSearch();
+}
+function bindRosterSearch(){
+  const inp = $('#rosterSearch'); if(!inp) return;
+  inp.addEventListener('input', ()=>{
+    const q = inp.value.trim().toLowerCase();
+    const c = classById(state.studentsClass);
+    const filtered = c.students.filter(s=>s.name.toLowerCase().includes(q)||s.phone.includes(q));
+    $('#rosterBody').innerHTML = rosterRows(filtered);
+  });
+}
+
+/* ================= MODALS ================= */
+function openEventModal(t){
+  const c = classById(t.dataset.class);
+  openModal(`
+    <div class="modal-head"><h3>Chi tiết tiết học — Lớp ${c.id}</h3><button class="modal-close" data-action="modal-close">${icon('x',18)}</button></div>
+    <div class="profile-row"><span>Thời gian</span><span>${t.dataset.time}</span></div>
+    <div class="profile-row"><span>Địa điểm</span><span>${t.dataset.room}</span></div>
+    <div class="profile-row"><span>Chủ đề bài học</span><span>${esc(t.dataset.topic)}</span></div>
+    <div class="profile-row"><span>Ghi chú</span><span>${esc(t.dataset.note)}</span></div>
+  `);
+}
+function openAddReminderModal(){
+  openModal(`
+    <div class="modal-head"><h3>Thêm nhắc việc</h3><button class="modal-close" data-action="modal-close">${icon('x',18)}</button></div>
+    <div class="field"><label>Nội dung công việc</label><input id="remText" placeholder="VD: Nộp sổ đầu bài lớp 6A1"></div>
+    <div class="field"><label>Hạn chót (số ngày tới)</label><input id="remDays" type="number" min="1" max="30" value="5"></div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center" data-action="save-reminder">Lưu nhắc việc</button>
+  `);
+}
+function openFeedbackModal(){
+  openModal(`
+    <div class="modal-head"><h3>Tạo phiếu phản hồi</h3><button class="modal-close" data-action="modal-close">${icon('x',18)}</button></div>
+    <div class="field"><label>Tên giáo viên</label><input id="fmName" value="${TEACHER.name}"></div>
+    <div class="field-row">
+      <div class="field"><label>Môn học</label><select id="fmSubject">${SUBJECTS.map(s=>`<option ${s===TEACHER.subject?'selected':''}>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Lớp áp dụng</label><select id="fmClass">${CLASSES.map(c=>`<option>${c.id}</option>`).join('')}</select></div>
+    </div>
+    <div class="field"><label>Nhận xét chung về lớp</label><textarea id="fmClassFb" placeholder="Không khí học tập, mức độ tiếp thu…"></textarea></div>
+    <div class="field"><label>Nhận xét học sinh cụ thể (không bắt buộc)</label><textarea id="fmStudentFb" placeholder="Tên học sinh và nhận xét riêng…"></textarea></div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center" data-action="submit-feedback-modal">Gửi phiếu phản hồi</button>
+  `);
+}
+
+/* Files never render/embed inside the app UI. Every file opens in a NEW browser tab:
+   - PDF  -> the browser's native PDF viewer (real uploaded PDFs open as-is; seed/demo
+             entries with no real bytes get a generated placeholder PDF via jsPDF).
+   - XLSX/CSV -> parsed client-side (SheetJS for real uploads) and rendered as a
+             spreadsheet-style page in the new tab. A genuine Google Sheets redirect
+             needs the file hosted at a public URL, which this front-end-only demo
+             doesn't have — this is the functional equivalent without a backend. */
+async function openFilePreview(t){
+  const id=t.dataset.id, name=t.dataset.name, type=t.dataset.type;
+  const blob = UPLOADED_BLOBS[id]; // real File if this was actually uploaded this session
+  try{
+    if(type==='pdf') await openPdfNewTab(name, blob);
+    else if(type==='xlsx' || type==='csv') await openSheetNewTab(name, type, blob);
+    else if(type==='docx') await openDocxNewTab(name, blob);
+    else openGenericNewTab(name, type);
+  }catch(err){ toast('Không thể mở tệp để xem trước.'); }
+}
+function openBlobInNewTab(blob){ const url=URL.createObjectURL(blob); window.open(url,'_blank','noopener'); }
+async function openPdfNewTab(name, blob){
+  if(blob){ openBlobInNewTab(blob); return; } // real uploaded PDF -> real native viewer
+  if(!window.jspdf){ toast('Không tải được trình tạo PDF (kiểm tra kết nối mạng).'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFontSize(16); doc.text(name, 14, 20);
+  doc.setFontSize(11);
+  doc.text('Bản xem trước giữ chỗ (demo) — tệp mẫu này không có nội dung thật.', 14, 34, {maxWidth:180});
+  doc.text('Trong hệ thống thật, tệp PDF gốc sẽ mở trực tiếp bằng trình xem PDF của trình duyệt.', 14, 44, {maxWidth:180});
+  doc.text('Trường: '+TEACHER.school, 14, 60);
+  doc.text('Ngày mở xem trước: '+fmtDate(new Date()), 14, 68);
+  openBlobInNewTab(doc.output('blob'));
+}
+async function openSheetNewTab(name, type, blob){
+  let rows, isReal=false;
+  if(blob){
+    isReal=true;
+    if(type==='csv'){ rows = (await blob.text()).trim().split(/\r?\n/).map(l=>l.split(',')); }
+    else{
+      if(!window.XLSX){ toast('Không tải được thư viện đọc Excel (kiểm tra kết nối mạng).'); return; }
+      const wb = XLSX.read(await blob.arrayBuffer(), {type:'array'});
+      rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, defval:''});
+    }
+  } else {
+    rows = [['Họ tên','Toán','Văn','Anh','TB']];
+    for(let i=0;i<10;i++){ const n=genName(rnd()<0.5?'M':'F'); const t2=rf(5,10),v=rf(5,10),a=rf(5,10); rows.push([n,t2,v,a,((+t2+ +v+ +a)/3).toFixed(1)]); }
+  }
+  openBlobInNewTab(new Blob([buildSheetHtmlPage(name, rows, isReal)], {type:'text/html'}));
+}
+function buildSheetHtmlPage(name, rows, isReal){
+  const colCount = Math.max(1, ...rows.map(r=>r.length));
+  const colLabel = i => { let s='',n=i+1; while(n>0){ s=String.fromCharCode(65+((n-1)%26))+s; n=Math.floor((n-1)/26);} return s; };
+  const thead = `<tr><th class="rh"></th>${Array.from({length:colCount}).map((_,i)=>`<th>${colLabel(i)}</th>`).join('')}</tr>`;
+  const body = rows.map((r,ri)=>`<tr><td class="rh">${ri+1}</td>${Array.from({length:colCount}).map((_,ci)=>`<td>${r[ci]!=null?esc(String(r[ci])):''}</td>`).join('')}</tr>`).join('');
+  return `<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>${esc(name)}</title>
+  <style>body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#f8f9fa;color:#202124}
+  .toolbar{background:#fff;border-bottom:1px solid #e0e0e0;padding:12px 18px;font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .note{font-size:12px;color:#5f6368;padding:8px 18px;background:#fff8e1;border-bottom:1px solid #f0e0a0}
+  table{border-collapse:collapse;margin:16px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  th,td{border:1px solid #e0e0e0;padding:6px 14px;font-size:13px;white-space:nowrap}
+  th{background:#f1f3f4;font-weight:600;color:#5f6368;position:sticky;top:0}
+  .rh{background:#f1f3f4;text-align:center;font-weight:600;color:#5f6368;width:34px}</style></head>
+  <body><div class="toolbar">${icon('sheet',16)} ${esc(name)}</div>
+  <div class="note">${isReal? 'Xem trước nội dung thật của tệp bạn vừa tải lên (đọc trực tiếp trên trình duyệt).':'Dữ liệu mẫu minh họa — tệp gốc chưa được tải lên trong phiên demo này.'}</div>
+  <div style="overflow:auto"><table>${thead}${body}</table></div></body></html>`;
+}
+async function openDocxNewTab(name, blob){
+  if(blob && window.mammoth){
+    try{
+      const result = await mammoth.convertToHtml({arrayBuffer: await blob.arrayBuffer()});
+      const html = `<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>${esc(name)}</title>
+      <style>body{font-family:Georgia,'Times New Roman',serif;max-width:760px;margin:36px auto;padding:0 24px;line-height:1.65;color:#222}
+      .toolbar{font-family:Arial,sans-serif;font-size:13px;color:#5f6368;border-bottom:1px solid #e0e0e0;padding-bottom:10px;margin-bottom:22px}</style></head>
+      <body><div class="toolbar">${icon('file',14)} ${esc(name)} — nội dung thật, đọc bằng mammoth.js</div>${result.value}</body></html>`;
+      openBlobInNewTab(new Blob([html], {type:'text/html'})); return;
+    }catch(e){ /* fall through to placeholder */ }
+  }
+  openGenericNewTab(name, 'docx');
+}
+function openGenericNewTab(name, type){
+  const html = `<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>${esc(name)}</title>
+  <style>body{font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f8f9fa;color:#5f6368;text-align:center}
+  .box{max-width:380px}</style></head><body><div class="box"><div style="font-size:44px">📄</div>
+  <h2 style="color:#202124;font-size:17px">${esc(name)}</h2>
+  <p>Bản xem trước giữ chỗ cho tệp ${esc(type||'')} trong bản demo này. Trong hệ thống thật, tệp gốc sẽ mở trực tiếp ở đây.</p>
+  </div></body></html>`;
+  openBlobInNewTab(new Blob([html], {type:'text/html'}));
+}
+function openMonthDayModal(dateStr){
+  const rems = allReminders().filter(r=>fmtDate(new Date(r.due))===dateStr);
+  const d = new Date(dateStr.split('/').reverse().join('-'));
+  const wd = d.getDay();
+  const isClassDay = wd>=1 && wd<=6;
+  openModal(`
+    <div class="modal-head"><h3>${dateStr}</h3><button class="modal-close" data-action="modal-close">${icon('x',18)}</button></div>
+    <p style="font-size:13px;color:var(--ink-soft)">${isClassDay? 'Có lịch giảng dạy trong ngày này.':'Không có lịch giảng dạy (ngày nghỉ).'}</p>
+    ${rems.length? `<div class="divider-dashed"></div>${rems.map(r=>`<div class="reminder-item"><div class="reminder-ck"></div><div class="reminder-body"><h4>${esc(r.text)}</h4></div></div>`).join('')}` : ''}
+  `);
+}
+
+/* ================= MASCOT ================= */
+// Original character (round glasses face + flower-petal backdrop, in the
+// app's own palette) — reused at button size and as the chat avatar, so
+// "the chatbot" and "the mascot" are visibly the same character.
+function mascotFaceSVG(size){
+  return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="14" r="15" fill="#DDA15E"/>
+    <circle cx="78" cy="30" r="14" fill="#BC6C25"/>
+    <circle cx="84" cy="60" r="14" fill="#606C38"/>
+    <circle cx="62" cy="83" r="14" fill="#DDA15E"/>
+    <circle cx="34" cy="83" r="14" fill="#606C38"/>
+    <circle cx="12" cy="58" r="14" fill="#BC6C25"/>
+    <circle cx="18" cy="29" r="14" fill="#DDA15E"/>
+    <circle cx="50" cy="50" r="27" fill="#FEFAE0" stroke="#283618" stroke-width="3"/>
+    <circle cx="40" cy="48" r="8" fill="none" stroke="#283618" stroke-width="2.6"/>
+    <circle cx="60" cy="48" r="8" fill="none" stroke="#283618" stroke-width="2.6"/>
+    <line x1="48" y1="48" x2="52" y2="48" stroke="#283618" stroke-width="2.6"/>
+    <circle cx="40" cy="48" r="2.2" fill="#283618"/>
+    <circle cx="60" cy="48" r="2.2" fill="#283618"/>
+    <path d="M42 61 Q50 67 58 61" fill="none" stroke="#283618" stroke-width="2.6" stroke-linecap="round"/>
+    <circle cx="29" cy="58" r="4" fill="#BC6C25" opacity=".45"/>
+    <circle cx="71" cy="58" r="4" fill="#BC6C25" opacity=".45"/>
+  </svg>`;
+}
+document.getElementById('mascotBtn').innerHTML = mascotFaceSVG(40);
+
+const TIPS=[
+  'Mẹo: bấm vào tên học sinh trong danh sách lớp để xem hồ sơ chi tiết và nhận định tự động.',
+  'Mẹo: dùng thẻ "Tháng" trong lịch giảng dạy để xem nhanh các ngày có hạn công việc.',
+  'Mẹo: phản hồi cuối tiết ở mục Điểm danh sẽ là dữ liệu gốc cho đánh giá học sinh.',
+  'Mẹo: mục Học tập & Tiến độ tổng hợp sẵn danh sách học sinh cần chú ý mỗi tuần.',
+  'Mẹo: bạn có thể tải học bạ số theo từng lớp trong mục Thư viện.',
+];
+let tipIdx=0;
+
+/* Real AI chat via the artifact's built-in `sample` capability — asks
+   Claude directly on the viewer's own account. No API key is ever stored
+   in this page; there is nothing here for anyone to steal. */
+let _samplePromise = null;
+function getSample(){
+  if(typeof window.claude==='undefined' || typeof window.claude.use!=='function') return Promise.resolve(null);
+  if(!_samplePromise) _samplePromise = window.claude.use('sample').catch(()=>null);
+  return _samplePromise;
+}
+const MASCOT_SYSTEM = `Bạn là "Gọn" — trợ lý AI thân thiện, là linh vật của ứng dụng Sổ Gọn, một ứng dụng quản lý lớp học dành cho giáo viên THCS tại Việt Nam. Người dùng hiện tại là Cô Nguyễn Thu Hà, dạy Toán, chủ nhiệm lớp 8A1, các lớp giảng dạy gồm 6A1, 7A2, 8A1, 9A3. Trả lời ngắn gọn (dưới 120 từ trừ khi được yêu cầu dài hơn), thân thiện, bằng tiếng Việt. Bạn có thể giúp: soạn nhận xét học sinh, ý tưởng quản lý lớp học, giải thích cách dùng các mục trong ứng dụng (Trang chủ, Học tập & Tiến độ, Quản lý Học sinh, Điểm danh, Thư viện, Kênh Liên lạc), hoặc trò chuyện nhẹ nhàng. Bạn KHÔNG có quyền truy cập dữ liệu thời gian thực của ứng dụng (điểm số, danh sách vắng mặt cụ thể…) — nếu được hỏi những điều đó, hãy nói thật rằng bạn không thấy được dữ liệu đó và gợi ý cô xem trực tiếp trong ứng dụng.`;
+let mascotChatTurns = []; // {role:'user'|'assistant', content}
+let mascotPending = '';
+let mascotBusy = false;
+function mascotErrorCopy(code){
+  return ({
+    not_granted:'Cô đã không cho phép Gọn dùng Claude trong phiên này.',
+    sampling_disabled:'Tính năng trò chuyện AI hiện không khả dụng cho tài khoản này.',
+    rate_limited:'Gọn đang hơi bận, cô thử lại sau một chút nhé.',
+    session_expired:'Phiên đăng nhập Claude đã hết hạn, hãy đăng nhập lại.',
+    refused:'Gọn không thể trả lời câu này.',
+    empty_completion:'Gọn chưa nghĩ ra câu trả lời, cô thử hỏi cách khác nhé.',
+    prompt_too_large:'Cuộc trò chuyện hơi dài rồi, hãy bắt đầu chủ đề mới nhé.',
+  })[code] || 'Có lỗi xảy ra, vui lòng thử lại.';
+}
+function mascotBubbleHTML(role, content){
+  const isUser = role==='user';
+  return `<div style="display:flex; gap:7px; align-items:flex-end; margin-bottom:9px; ${isUser?'flex-direction:row-reverse':''}">
+    ${isUser?'':`<div style="flex:0 0 auto">${mascotFaceSVG(22)}</div>`}
+    <div style="max-width:78%; padding:8px 11px; border-radius:12px; font-size:12.5px; line-height:1.5; white-space:pre-wrap; background:${isUser?'var(--olive)':'var(--surface-2)'}; color:${isUser?'#fff':'var(--ink)'}">${esc(content)}</div>
+  </div>`;
+}
+function renderMascotChatBody(){
+  const body = document.getElementById('mascotChatBody'); if(!body) return;
+  if(!mascotChatTurns.length && !mascotBusy){
+    body.innerHTML = `<div class="mascot-tip">${TIPS[tipIdx]}</div>`;
+  } else {
+    body.innerHTML = mascotChatTurns.map(t=>mascotBubbleHTML(t.role,t.content)).join('')
+      + (mascotBusy ? mascotBubbleHTML('assistant', mascotPending || 'Đang suy nghĩ…') : '');
+  }
+  body.scrollTop = body.scrollHeight;
+}
+async function mascotSend(){
+  if(mascotBusy) return;
+  const inp = document.getElementById('mascotInput'); if(!inp) return;
+  const text = inp.value.trim(); if(!text) return;
+  inp.value='';
+  mascotChatTurns.push({role:'user', content:text});
+  mascotBusy = true; mascotPending = '';
+  renderMascotChatBody();
+  const sample = await getSample();
+  if(!sample){
+    mascotChatTurns.push({role:'assistant', content:'Gọn chưa thể trò chuyện trong chế độ xem này — hãy mở trang này qua Claude (không phải bản xem trước) để bật tính năng nhé.'});
+    mascotBusy=false; renderMascotChatBody(); return;
+  }
+  try{
+    const {text: full} = await sample([{role:'user', content:MASCOT_SYSTEM}, ...mascotChatTurns], {
+      cache:false, modelTier:'quick',
+      onText:({text})=>{ mascotPending = text; renderMascotChatBody(); }
+    });
+    mascotChatTurns.push({role:'assistant', content:full});
+  }catch(e){
+    mascotChatTurns.push({role:'assistant', content: e.text || mascotErrorCopy(e.code)});
+  }
+  mascotPending=''; mascotBusy=false;
+  renderMascotChatBody();
+}
+function renderMascotPanel(){
+  $('#mascotPanel').innerHTML = `<div class="mascot-panel">
+    <div class="mhead">${mascotFaceSVG(26)}<b>Trợ lý Gọn</b></div>
+    <div id="mascotChatBody" class="mascot-chat-body"></div>
+    <div class="mascot-quick">
+      <button data-action="mascot-tip">${icon('sparkle',13)} Mẹo tiếp theo</button>
+      <button data-action="mascot-goto" data-page="attendance">${icon('check',13)} Đi tới Điểm danh hôm nay</button>
+      <button data-action="mascot-goto" data-page="academics">${icon('alert',13)} Xem học sinh cần chú ý</button>
+    </div>
+    <div class="mascot-chat-input">
+      <input id="mascotInput" placeholder="Hỏi Gọn điều gì đó…" autocomplete="off">
+      <button data-action="mascot-send" title="Gửi">${icon('send',15)}</button>
+    </div>
+  </div>`;
+  renderMascotChatBody();
+}
+
+
+/* ================= EVENT DELEGATION ================= */
+const handlers = {
+  'nav': t=>go(t.dataset.page),
+  'modal-close': closeModal, 'modal-bg': closeModal,
+  'banner-dismiss': ()=>{ ls_set('sogon_banner_dismissed',true); renderBanner(); toast('Đã ẩn thông báo. Bạn có thể tạo khảo sát sau.'); },
+  'banner-create': ()=>{ ls_set('sogon_banner_dismissed',true); renderBanner(); toast('Đã tạo khảo sát đánh giá gửi tới giáo viên bộ môn ✓'); },
+  'sched-view': t=>{ state.schedView=t.dataset.view; renderPage(); },
+  'open-event': t=>openEventModal(t),
+  'quick-attendance': t=>{ state.attClass=t.dataset.class; go('attendance'); },
+  'add-reminder': openAddReminderModal,
+  'save-reminder': ()=>{
+    const text=$('#remText').value.trim(); const days=+($('#remDays').value||5);
+    if(!text){ toast('Vui lòng nhập nội dung công việc.'); return; }
+    userReminders.push({id:'u'+Date.now(), text, due: addDays(new Date(),days).toISOString()});
+    ls_set('sogon_reminders_v3', userReminders); closeModal(); renderPage(); toast('Đã thêm nhắc việc mới ✓');
+  },
+  'reminder-done': t=>{
+    const id=t.dataset.id;
+    if(SEED_REMINDERS.find(r=>r.id===id)){
+      if(!dismissedSeedIds.includes(id)){ dismissedSeedIds.push(id); ls_set('sogon_dismissed_seed_v1', dismissedSeedIds); }
+    } else {
+      userReminders = userReminders.filter(r=>r.id!==id);
+      ls_set('sogon_reminders_v3', userReminders);
+    }
+    toast('Đã đánh dấu hoàn thành ✓');
+    renderPage();
+  },
+  'open-feedback-modal': openFeedbackModal,
+  'submit-feedback-modal': ()=>{
+    const teacherName=$('#fmName').value.trim()||TEACHER.name, subject=$('#fmSubject').value, targetClass=$('#fmClass').value;
+    const classFeedback2=$('#fmClassFb').value.trim(), studentFb=$('#fmStudentFb').value.trim();
+    if(!classFeedback2){ toast('Vui lòng nhập nhận xét chung về lớp.'); return; }
+    feedbackHistory.push({teacherName, subject, targetClass, classFeedback:classFeedback2, studentFeedback:studentFb, date:fmtDate(new Date())});
+    ls_set('sogon_feedback_v3', feedbackHistory); closeModal(); renderPage(); toast('Đã gửi phiếu phản hồi ✓');
+  },
+  'open-class': t=>{ state.studentsClass=t.dataset.class; renderPage(); },
+  'back-to-classes': ()=>{ state.studentsClass=null; state.studentDetail=null; renderPage(); },
+  'open-student': t=>{ state.studentDetail=t.dataset.student; renderPage(); },
+  'back-to-roster': t=>{ state.studentDetail=null; state.studentsClass=t.dataset.class; renderPage(); },
+  'att-class': t=>{ state.attClass=t.dataset.class; renderPage(); },
+  'mark-att': t=>{
+    const {class:cid, student, status} = t.dataset;
+    attToday[cid]=attToday[cid]||{}; attToday[cid][student]=status;
+    ls_set('sogon_att_today_v3', attToday);
+    // live-patch instead of full re-render so the overview bar visibly recalculates instantly
+    const c = classById(cid); const marks = attToday[cid];
+    const row = document.getElementById(`attrow-${student}`);
+    if(row) row.outerHTML = attRowHTML(c, c.students.find(s=>s.id===student), marks);
+    const badge = document.getElementById('attRateBadge'); if(badge) badge.outerHTML = attOverviewHTML(c, marks);
+    const block = document.getElementById('attOverviewBlock'); if(block) block.innerHTML = attBarAndCountsHTML(c, marks);
+  },
+  'submit-class-feedback': t=>{
+    const cid=t.dataset.class; const subject=$('#fbSubject').value; const text=$('#fbText').value.trim();
+    if(!text){ toast('Vui lòng nhập nhận xét tiết học.'); return; }
+    classFeedback[cid]=classFeedback[cid]||[]; classFeedback[cid].push({subject,text,date:fmtDate(new Date())+' '+new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})});
+    ls_set('sogon_classfeedback_v3', classFeedback); renderPage(); toast('Đã gửi phản hồi cuối tiết ✓');
+  },
+  'lib-class': t=>{ state.libClass=t.dataset.class; renderPage(); },
+  'preview-file': t=>openFilePreview(t),
+  'comm-class': t=>{ state.commClass=t.dataset.class; renderPage(); },
+  'open-zalo': ()=>toast('Bản demo: nút này sẽ mở liên kết nhóm Zalo thực tế của lớp.'),
+  'month-day': t=>openMonthDayModal(t.dataset.date),
+  'mark-read-all': ()=>{ NOTIFS.forEach(n=>n.unread=false); renderNotifCount(); toggleNotifPop(); toggleNotifPop(); },
+  'mascot-tip': ()=>{ tipIdx=(tipIdx+1)%TIPS.length; renderMascotChatBody(); },
+  'mascot-goto': t=>{ go(t.dataset.page); },
+  'mascot-send': mascotSend,
+  'goto-class': t=>{ closeAllPops(); $('#globalSearch').value=''; state.page='students'; state.studentsClass=t.dataset.class; state.studentDetail=null; renderNav(); renderPage(); window.scrollTo({top:0}); },
+  'goto-student': t=>{ closeAllPops(); $('#globalSearch').value=''; const st=studentById(t.dataset.student); state.page='students'; state.studentsClass=st.cls; state.studentDetail=st.id; renderNav(); renderPage(); window.scrollTo({top:0}); },
+  'notif-item': t=>{ const i=+t.dataset.idx; if(NOTIFS[i]){ NOTIFS[i].unread=false; t.classList.remove('unread'); renderNotifCount(); } },
+  'logout': ()=>{ closeAllPops(); toast('Đây là bản demo — chức năng đăng xuất sẽ hoạt động khi kết nối hệ thống xác thực thật.'); },
+};
+
+document.addEventListener('click', e=>{
+  const t = e.target.closest('[data-action]');
+  const inPop = e.target.closest('#notifPop, #profilePop, #searchPop');
+  const inMascot = e.target.closest('#mascotWrap');
+  if(t && handlers[t.dataset.action]) handlers[t.dataset.action](t,e);
+  if(!t){
+    if(!inPop && !e.target.closest('#notifBtn, #avatarBtn, #globalSearch')) closeAllPops();
+  }
+});
+$('#notifBtn').addEventListener('click', e=>{ e.stopPropagation(); toggleNotifPop(); });
+$('#avatarBtn').addEventListener('click', e=>{ e.stopPropagation(); toggleProfilePop(); });
+function searchPopHTML(query){
+  const q = query.trim().toLowerCase();
+  if(!q) return '';
+  const classMatches = CLASSES.filter(c=>c.id.toLowerCase().includes(q)).slice(0,3);
+  const studentMatches = ALL_STUDENTS.filter(s=>s.name.toLowerCase().includes(q)||s.phone.includes(q)).slice(0,6);
+  if(!classMatches.length && !studentMatches.length){
+    return `<div class="search-pop"><div class="emptystate" style="padding:20px">${icon('users',24)}<div>Không tìm thấy lớp hoặc học sinh phù hợp.</div></div></div>`;
+  }
+  return `<div class="search-pop">
+    ${classMatches.map(c=>`<button class="search-row" data-action="goto-class" data-class="${c.id}"><div class="sric">${icon('book',15)}</div><div>Lớp ${c.id}<small>${c.students.length} học sinh · GVCN ${esc(c.gvcn)}</small></div></button>`).join('')}
+    ${studentMatches.map(s=>`<button class="search-row" data-action="goto-student" data-student="${s.id}"><div class="sric">${icon('users',15)}</div><div>${esc(s.name)}<small>Lớp ${s.cls} · ${s.phone}</small></div></button>`).join('')}
+  </div>`;
+}
+$('#globalSearch').addEventListener('input', e=>{ $('#searchPop').innerHTML = searchPopHTML(e.target.value); });
+$('#globalSearch').addEventListener('focus', e=>{ if(e.target.value.trim()) $('#searchPop').innerHTML = searchPopHTML(e.target.value); });
+$('#mascotBtn').addEventListener('click', ()=>{
+  const p=$('#mascotPanel');
+  if(p.innerHTML){ p.innerHTML=''; } else { renderMascotPanel(); }
+});
+document.addEventListener('keydown', e=>{
+  if(e.target && e.target.id==='mascotInput' && e.key==='Enter'){ e.preventDefault(); mascotSend(); }
+});
+
+$('#collapseBtn').addEventListener('click', ()=>{
+  $('#sidebar').classList.toggle('collapsed');
+  const collapsed = $('#sidebar').classList.contains('collapsed');
+  $('#collapseBtn').innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l${collapsed?'6 6-6 6':'-6 6 6 6'}"/></svg>`;
+});
+
+/* library upload (File API, client-side only) — the real File is kept in memory
+   (not localStorage, since blobs aren't serializable) so its preview opens the
+   actual content; only the metadata row persists across reloads. */
+document.addEventListener('change', e=>{
+  if(e.target.id==='libUpload'){
+    const file = e.target.files[0]; if(!file) return;
+    const cid = state.libClass; libUser[cid]=libUser[cid]||[];
+    const ext = file.name.split('.').pop().toLowerCase();
+    const type = ['xlsx','xls'].includes(ext)?'xlsx':ext==='csv'?'csv':ext==='pdf'?'pdf':'docx';
+    const id = 'u'+Date.now()+Math.floor(rnd()*1000);
+    UPLOADED_BLOBS[id] = file;
+    libUser[cid].push({id, name:file.name, type, size:(file.size/1024).toFixed(0)+' KB', date:fmtDate(new Date())});
+    ls_set('sogon_library_v3', libUser); renderPage(); toast('Đã tải tệp lên kho lớp '+cid+' ✓ — nhấp vào tệp để xem trước ở tab mới');
+    e.target.value='';
+  }
+});
+
+
+/* ================= INIT ================= */
+function init(){
+  renderNav(); renderAvatar(); renderNotifCount(); tickDate(); renderBanner();
+  renderPage();
+  setInterval(tickDate, 30000);
+  setInterval(()=>{ if(state.page==='dashboard') $('#reminderList') && ($('#reminderList').innerHTML = renderReminderList()); if(state.page==='academics') $('#reminderList2') && ($('#reminderList2').innerHTML = renderReminderList()); }, 60000);
+}
+init();
+})();
+</script>
+</body>
+</html>
